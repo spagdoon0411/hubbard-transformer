@@ -8,7 +8,13 @@ class PositionEncoding(nn.Module):
     Positional encoding module for a transformer model
     """
 
-    def __init__(self, d_model: int, max_len: int = 32, wavelen_fact=1e6):
+    def __init__(
+        self,
+        d_model: int,
+        max_len: int = 32,
+        wavelen_fact=1e6,
+        dtype: torch.dtype = torch.complex64,
+    ):
         super(PositionEncoding, self).__init__()
 
         if (d_model % 2) != 0:
@@ -30,6 +36,8 @@ class PositionEncoding(nn.Module):
         pe[:, 1::2] = torch.cos(position * div_term)
 
         pe = pe.unsqueeze(0).transpose(0, 1)  # (max_len, 1, d_model)
+
+        pe.to(dtype=dtype)
 
         # Register the positional encoding as a buffer
         self.register_buffer("pe", pe)
