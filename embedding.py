@@ -115,3 +115,6 @@ class HubbardEmbedding(nn.Module):
         buf[n_sites:, :, self.token_dims :] = param_buf
 
         return buf
+
+    def deembed(self, logits: TensorType["seq", "batch", "embed"]):
+        """ """
