@@ -3,7 +3,7 @@ from torch import nn
 from torchtyping import TensorType
 
 
-class ParamEmbedding(nn.Module):
+class SimpleParamEmbedding(nn.Module):
     """
     Creates a parameter embedding for a TQS model, taking a list of physical
     parameters to do this. Gives the parameters their own dimension, then
@@ -15,7 +15,7 @@ class ParamEmbedding(nn.Module):
         n_params: int,
         target_dim: int,
     ):
-        super(ParamEmbedding, self).__init__()
+        super(SimpleParamEmbedding, self).__init__()
 
         # TODO: the interaction between parameters probably should not be captured
         # linearly. Maybe use a few small rounds of self-attention?

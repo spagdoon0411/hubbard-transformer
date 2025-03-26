@@ -1,5 +1,5 @@
 import torch
-from model.param_embedding import ParamEmbedding
+from model.param_embedding import SimpleParamEmbedding
 
 # A parameter embedding takes in a buffer of shape (seq, batch) and
 # pushes the parameters out into an embedding dimension, producing an
@@ -10,7 +10,7 @@ from model.param_embedding import ParamEmbedding
 n_params = 10
 target_dim = 16
 
-pe = ParamEmbedding(
+pe = SimpleParamEmbedding(
     n_params=n_params,
     target_dim=target_dim,
 )
