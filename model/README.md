@@ -24,6 +24,13 @@ nonlinear map with lower time/space complexity) later.
 
 ## Parameter Embeddings
 
+For now, avoiding giving parameters and tokens different dimensions. Might be
+reasonable to promote more "interaction"
+
+## Research Questions
+
+- Should we have site embeddings and global sequence embeddings?
+
 ## TODOs
 
 - Better descriptions of each layer
