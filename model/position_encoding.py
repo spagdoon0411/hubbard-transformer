@@ -13,7 +13,7 @@ class PositionEncoding(nn.Module):
         embed_dim: int,
         max_len: int = 32,
         wavelen_fact=1e6,
-        dtype: torch.dtype = torch.complex64,
+        dtype: torch.dtype = torch.float32,
     ):
         super(PositionEncoding, self).__init__()
         self.max_len = max_len
