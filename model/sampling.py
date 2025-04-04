@@ -112,7 +112,6 @@ class Sampling:
 
         if n_tokens > up_to:
             raise ValueError("Number of provided tokens exceeds target length (up_to)")
-            raise ValueError("Sequence length ")
         if len(tokens.shape) < 3:
             raise ValueError("Tokens must have at least 3 dimensions")
 
