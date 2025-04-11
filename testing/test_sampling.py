@@ -5,14 +5,18 @@ from model.token_embedding import OccupationSpinEmbedding
 from model.position_encoding import PositionEncoding
 from model.hubbard_deembedding import HubbardDeembedding
 import torch
+import torch.nn.functional as F
+from torchtyping import TensorType
+import einops as ein
 
 n_params = 10
 n_tokens = 27
 additional_tokens = 5
 embed_dim = 32
 batch = 20
-input_token_dims = [10, 2]
+input_token_dims = [50, 2]
 input_token_rearrange = "o sp -> (o sp)"
+target_part_num = 100
 
 deembedding_function = HubbardDeembedding(
     embed_dim=embed_dim,
@@ -33,12 +37,30 @@ embedding_function = SiteDegreeEmbedding(
 # with the number of tokens requested
 sampling = Sampling(
     embed_dim=embed_dim,
+    particle_number=100,
     embedding_function=embedding_function,
     deembedding_function=deembedding_function,
 )
 
 test_params = torch.randn(n_params, batch)
-test_occupations = torch.randn(n_tokens, batch, *input_token_dims)
+
+
+# Generate some dummy occupations
+max_occ = 50
+occ, spin = input_token_dims
+test_occupations = torch.rand(n_tokens, batch, *input_token_dims)
+test_occupations = (test_occupations * (max_occ + 1)).to(torch.int64)
+test_occupations = torch.argmax(test_occupations, dim=-2)
+test_occupations = F.one_hot(test_occupations, num_classes=occ)
+test_occupations = ein.rearrange(
+    test_occupations,
+    "s b sp o -> s b o sp",
+)
+
+test_occupations = test_occupations.to(dtype=torch.float32)
+
+# Did we create realistic one-hot occupations?
+assert torch.all(test_occupations.sum(dim=-2) == 1)
 
 expanded_tokens = sampling.sample(
     params=test_params,  # type: ignore
@@ -51,6 +73,9 @@ assert expanded_tokens.shape == (
     batch,
     *input_token_dims,  # type: ignore
 )
+
+part_nums = torch.argmax(expanded_tokens, dim=-2).sum(dim=0).sum(dim=-1)
+assert torch.all(part_nums == target_part_num)
 
 new_tokens = expanded_tokens[n_tokens : n_tokens + additional_tokens, :, :, :]
 assert torch.all(new_tokens.sum(dim=-2) == 1)

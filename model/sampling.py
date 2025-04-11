@@ -9,11 +9,14 @@ import einops as ein
 from model.hubbard_deembedding import HubbardDeembedding
 from model.site_degree_embedding import SiteDegreeEmbedding
 
+DEBUG_ASSERTIONS = True
+
 
 class Sampling:
     def __init__(
         self,
         embed_dim: int,
+        particle_number: int,
         embedding_function: SiteDegreeEmbedding,
         deembedding_function: HubbardDeembedding,
     ):
@@ -21,8 +24,13 @@ class Sampling:
         Assumes embedding_function takes the sequence of tokens and produces
         a sequence of logits of the same length, with embedding dimension
         embed_dim. embedding_function is very likely a neural network.
+
+        counter_function is a map from (batch1, ..., batchN, token1, ..., tokenN)
+        -> (batch1, ..., batchN) that counts the number of particles corresponding
+        to each token.
         """
 
+        self.particle_number = particle_number
         self.embed_dim = embed_dim
         self.embedding_function = embedding_function
         self.deembedding_function = deembedding_function
@@ -88,6 +96,74 @@ class Sampling:
 
         return samples
 
+    def _enforce_particle_num(
+        self, tokens: TensorType["n_tokens", "batch", "..."]
+    ) -> TensorType["n_tokens", "batch", "..."]:
+        """
+        Ensures the number of particles over the whole chain matches the value prescribed
+        on initialization.
+
+        The one-hot encodings either need to be bumped up or down the occupation dimension
+        to adjust the number of particles in the chain
+        """
+
+        seq, batch, occ, sp = tokens.shape
+        max_occ_idx = occ - 1
+
+        site_occs = tokens.argmax(dim=-2)  # (s, b, sp)
+        site_occs = ein.rearrange(site_occs, "s b sp -> (s sp) b")
+
+        # Determine how many particles need to be added to each chain to achieve
+        # the target particle number
+        diffs = site_occs.sum(dim=0)  # (b,)
+        diffs = self.particle_number - diffs
+        negative_diffs = diffs < 0
+        diffs = diffs.abs()
+
+        # Start counting holes instead of particles for the chains that
+        # have to have particles removed
+        site_occs[:, negative_diffs] = max_occ_idx - site_occs[:, negative_diffs]
+
+        if DEBUG_ASSERTIONS:
+            assert diffs.shape == (batch,)
+            assert negative_diffs.shape == (batch,)
+            assert site_occs.shape == (seq * sp, batch)
+
+        adjustments_needed = diffs > 0  # (b,)
+        while adjustments_needed.sum().item():
+            available_sites = site_occs < max_occ_idx
+
+            site_selection_rand = torch.rand(available_sites.shape)
+            site_selection_rand[~available_sites] = -torch.inf
+            target_sites = torch.argmax(site_selection_rand, dim=0)
+            del site_selection_rand
+
+            remaining_cap = max_occ_idx - site_occs[target_sites, torch.arange(batch)]
+            adjustments = torch.rand(adjustments_needed.shape)
+            sample_ceil = torch.min(diffs, remaining_cap)
+            adjustments = (adjustments * (sample_ceil + 1)).to(torch.int)
+
+            site_occs[target_sites, torch.arange(batch)] += adjustments
+            diffs -= adjustments
+
+            adjustments_needed = diffs > 0
+
+        site_occs[:, negative_diffs] = max_occ_idx - site_occs[:, negative_diffs]
+        site_occs = ein.rearrange(
+            site_occs,
+            "(s sp) b -> s b sp",
+            s=seq,
+            sp=sp,
+        )
+
+        new_tokens = F.one_hot(site_occs, num_classes=occ)  # (s, b, sp, o)
+        new_tokens = ein.rearrange(new_tokens, "s b sp o -> s b o sp")
+
+        if DEBUG_ASSERTIONS:
+            assert new_tokens.shape == (seq, batch, occ, sp)
+
+        return new_tokens  # type: ignore
+
     def sample(
         self,
         params: TensorType["n_params", "batch"],
@@ -142,5 +218,8 @@ class Sampling:
 
             next = self._generate_samples(prob_dist, 1)
             more_tokens[i, :, :] = next
+
+        # type: ignore is because of Tensor -> TensorType error
+        more_tokens = self._enforce_particle_num(more_tokens)  # type: ignore
 
         return more_tokens
