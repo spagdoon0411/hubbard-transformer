@@ -3,28 +3,34 @@ import torch
 
 (seq, batch, embed) = (12, 16, 8)
 
-max_occ = 32
-possible_spins = 2
+possible_spins = 32
+max_occ = 2
 
 test_logits = torch.randn(seq, batch, embed)
 
 de = HubbardDeembedding(
     embed_dim=embed,
-    target_token_dims=[possible_spins, max_occ],
+    target_token_dims=[max_occ, possible_spins],
 )
 
 # TODO: include a phase head here
 prob_dist = de(test_logits)
 
-assert prob_dist.shape == (seq, batch, possible_spins, max_occ)
+assert prob_dist.shape == (seq, batch, max_occ, possible_spins)
 
 # Valid prob dist if we integrate along occupations
-assert torch.allclose(prob_dist.sum(dim=-1), torch.ones(seq, batch, possible_spins))
+assert torch.allclose(prob_dist.sum(dim=-1), torch.ones(seq, batch, max_occ))
 
 # If we pass in a single logit, we should get one back out:
 prob_dist = de(test_logits[0, :, :])
 
-assert prob_dist.shape == (batch, possible_spins, max_occ)
+assert prob_dist.shape == (batch, max_occ, possible_spins)
 
 # Valid prob dist if we integrate along occupations
-assert torch.allclose(prob_dist.sum(dim=-1), torch.ones(batch, possible_spins))
+assert torch.allclose(prob_dist.sum(dim=-1), torch.ones(batch, max_occ))
+
+# As if we're calculating a wave function
+prob, phase = de(test_logits[:, :, :], calculate_phase=True)
+
+assert prob.shape == (seq, batch, max_occ, possible_spins)
+assert phase.shape == (seq, batch, max_occ, possible_spins)
