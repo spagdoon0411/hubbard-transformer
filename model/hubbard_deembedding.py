@@ -23,6 +23,24 @@ class HubbardDeembedding(nn.Module):
         self.prob_head = nn.Parameter(torch.randn(embed_dim, target_flat_dim))
         self.phase_head = nn.Parameter(torch.randn(embed_dim, target_flat_dim))
 
+    def compute_psi(
+        self,
+        probs: torch.Tensor,
+        phases: torch.Tensor,
+    ):
+        """
+        The mapping from deembedding outputs (probs, phases) both in the format
+        s b o sp to complex amplitudes in the format s sp b.
+
+        Defines an interpretation for what the model outputs (e.g., probs,
+        root-probs, log probs, etc.).
+        """
+
+        # TODO: use log probs for efficiency
+        psi = probs[:, :, -1, :] * torch.exp(1j * phases[:, :, -1, :])  # s b sp
+        psi = psi.transpose(1, 2)  # s sp b
+        return psi
+
     def forward(
         self,
         logit: TensorType["batch", "embed"] | TensorType["seq", "batch", "embed"],
