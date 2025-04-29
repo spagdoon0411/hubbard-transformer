@@ -122,7 +122,7 @@ class HubbardHamiltonian(nn.Module):
         )
 
         # This selects the states that participate in hopping
-        relevant_states = b_bin[:, :, b_idx]
+        relevant_states = b_bin[:, :, h_idx]
         relevant_states = ein.rearrange(
             relevant_states,
             "s_sp 1 b -> s_sp b",
