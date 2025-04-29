@@ -35,7 +35,12 @@ prob, phase = de(test_logits[:, :, :], calculate_phase=True)
 assert prob.shape == (seq, batch, max_occ, possible_spins)
 assert phase.shape == (seq, batch, max_occ, possible_spins)
 
+idx = prob.argmax(dim=-2)  # s b sp
+prob = prob.gather(-2, idx.unsqueeze(-2)).squeeze(-2)  # s b sp
+phase = phase.gather(-2, idx.unsqueeze(-2)).squeeze(-2)  # s b sp
 psi = de.compute_psi(prob, phase)
+
+# Where did the spin dimension go?
 
 # Creates complex wave function values that are separated by spin dimension
 assert psi.shape == (seq, batch, possible_spins)
