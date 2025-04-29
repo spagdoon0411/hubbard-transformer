@@ -30,15 +30,15 @@ class HubbardDeembedding(nn.Module):
     ):
         """
         The mapping from deembedding outputs (probs, phases) both in the format
-        s b o sp to complex amplitudes in the format s sp b.
+        s b sp to values of psi.
 
-        Defines an interpretation for what the model outputs (e.g., probs,
+        Defines an interpretation for what the model forward pass outputs (e.g., probs,
         root-probs, log probs, etc.).
         """
 
         # TODO: use log probs for efficiency
-        psi = probs[:, :, -1, :] * torch.exp(1j * phases[:, :, -1, :])  # s b sp
-        psi = psi.transpose(1, 2)  # s sp b
+
+        psi = probs * torch.exp(1j * phases)  # s b sp
         return psi
 
     def forward(
