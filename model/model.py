@@ -84,7 +84,13 @@ class HubbardWaveFunction(nn.Module):
         on the wave function this model represents.
         """
 
-        params = params.unsqueeze(0).expand(num_chains, -1)  # type: ignore
+        # TODO: why do we infinite loop on sampling
+
+        params = ein.repeat(
+            params,
+            "n_params -> n_params b",
+            b=num_chains,
+        )
         tokens = torch.zeros(
             0,
             num_chains,
