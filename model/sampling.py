@@ -227,4 +227,6 @@ class Sampling:
         # type: ignore is because of Tensor -> TensorType error
         more_tokens = self._enforce_particle_num(more_tokens)  # type: ignore
 
+        more_tokens = more_tokens.to(dtype=torch.float32)
+
         return more_tokens
