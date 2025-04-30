@@ -246,18 +246,12 @@ class HubbardWaveFunction(nn.Module):
         # Psi is the wrong shape
 
         # TODO: these had spins selected in the forward pass
-        print(f"Shape of entries: {entries.shape}")
-        print(f"Shape of sampled_psi: {sampled_psi.shape}")
-        print(f"Shape of basis_psi: {basis_psi.shape}")
-
         E_loc_terms = ein.einsum(
             entries,
             sampled_psi,
             basis_psi,
             "b h, s b sp, s h sp -> b",
         )
-
-        print(f"E_loc terms after einsumming: {E_loc_terms.shape}")
 
         # TODO: does the expression above sum over spins?
 
@@ -290,8 +284,6 @@ class HubbardWaveFunction(nn.Module):
         )  # s b o sp
 
         idx = torch.argmax(prob, dim=-2)  # s b sp
-        print(f"Shape of idx: {idx.shape}")
-        print(f"Shape of prob: {prob.shape}")
 
         # Gather does prob[i, j, k, l] = prob[i, j, idx[i, j, k, l], l]
 
@@ -299,7 +291,5 @@ class HubbardWaveFunction(nn.Module):
         idx = ein.rearrange(idx, "s b sp -> s b 1 sp")
         prob = prob.gather(-2, idx).squeeze(-2)  # s b sp
         phase = phase.gather(-2, idx).squeeze(-2)  # s b sp
-
-        print(f"Shape of prob after gather: {prob.shape}")
 
         return prob, phase
