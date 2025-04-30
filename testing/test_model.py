@@ -10,7 +10,7 @@ embed_dim = 32
 n_heads = 2
 n_layers = 2
 dim_feedforward = 64
-particle_number = 1000
+particle_number = 19
 max_len = 100
 
 

@@ -132,6 +132,11 @@ class Sampling:
         adjustments_needed = diffs > 0  # (b,)
         while adjustments_needed.sum().item():
             available_sites = site_occs < max_occ_idx
+            available_count = available_sites.sum(dim=0)  # (b,)
+            if available_count.sum().item() == 0:
+                raise ValueError(
+                    f"No available sites to add particles to. Can your chain support a particle number of {self.particle_number}?"
+                )
 
             site_selection_rand = torch.rand(available_sites.shape)
             site_selection_rand[~available_sites] = -torch.inf
