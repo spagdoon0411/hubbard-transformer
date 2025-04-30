@@ -156,7 +156,6 @@ class HubbardWaveFunction(nn.Module):
 
         return flat_states  # s h o sp == s nCk o sp
 
-    @lru_cache(maxsize=None)
     def compute_basis_information(self, num_sites: int, params: torch.Tensor):
         """
         Produces a complete basis tensor for the number of sites given, assuming
