@@ -125,7 +125,7 @@ class HubbardHamiltonian(nn.Module):
         relevant_states = b_bin[:, :, h_idx]
         relevant_states = ein.rearrange(
             relevant_states,
-            "s_sp 1 b -> s_sp b",
+            "s_sp 1 h -> s_sp h",
         )
 
         right_hops_new_space = single_right_hops[b_idx, h_idx]
