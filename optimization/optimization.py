@@ -2,6 +2,9 @@ from model.model import HubbardWaveFunction
 from model.hamiltonian import HubbardHamiltonian
 import torch
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
 n_params = 5
 batch = 32
 n_sites = 10
@@ -60,6 +63,8 @@ def main():
         particle_number=particle_number,
         max_len=max_len,
     )
+
+    model.to(device)
 
     optimizer = torch.optim.Adam(
         model.parameters(),
