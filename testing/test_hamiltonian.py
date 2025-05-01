@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import functools as ft
 import torch.nn.functional as F
 
+HEATMAPS = False
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -243,16 +245,47 @@ def test_batching(simple_ham):
     b = expand_str_chains(str2)  # (s b o sp)
 
     h_a_b = simple_ham.term(a, b)  # (b_a, b_b)
-    display_heatmap(
-        h_a_b,
-        y_labels=str1,
-        x_labels=str2,
-        title="Hopping Hamiltonian",
-        y_name="Row basis",
-        x_name="Column basis",
-    )
+    if HEATMAPS:
+        display_heatmap(
+            h_a_b,
+            y_labels=str1,
+            x_labels=str2,
+            title="Hopping Hamiltonian",
+            y_name="Row basis",
+            x_name="Column basis",
+        )
 
     assert h_a_b.shape == (len(str1), len(str2)), "Hopping Hamiltonian has wrong shape"
+
+
+def test_three_site_entries(simple_ham):
+    """
+    Some simple cases testing that batching doesn't explode.
+    """
+
+    # TODO: translate these indices to Hamiltonian indices
+
+    str1 = spin_occupation_site_basis(3, 2)
+    str2 = spin_occupation_site_basis(3, 2)
+
+    a = expand_str_chains(str1)
+    b = expand_str_chains(str2)  # (s b o sp)
+
+    h_a_b = simple_ham.term(a, b)  # (b_a, b_b)
+    assert str1[1] == "000001" and str2[0] == "000000"
+    assert h_a_b[1, 0] == 0.0
+
+    assert str1[1] == "000001" and str2[1] == "000001"
+    assert h_a_b[1, 1] == 2.0
+
+    assert str1[1] == "000001" and str2[3] == "000011"
+    assert h_a_b[1, 3] == 0.0
+
+    assert str1[20] == "010100" and str2[17] == "010001"
+    assert h_a_b[20, 17] == -1.0
+
+    assert str1[50] == "110010" and str2[45] == "101101"
+    assert h_a_b[50, 45] == 0.0
 
 
 def display_heatmap(
