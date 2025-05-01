@@ -137,5 +137,5 @@ class HubbardHamiltonian(nn.Module):
         num_hops[right_hops_new_space] += 1
 
         parity = num_hops % 2  # (num_linked)
-        entries[b_idx, h_idx] = torch.where(parity == 0, -self.t, self.t)
+        entries[b_idx, h_idx] = torch.where(parity == 0, self.t, -self.t)
         return entries
