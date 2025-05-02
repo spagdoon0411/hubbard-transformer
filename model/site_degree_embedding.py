@@ -5,13 +5,6 @@ from model.param_embedding import SimpleParamEmbedding
 from model.token_embedding import OccupationSpinEmbedding
 from model.position_encoding import PositionEncoding
 
-# Input tokens are generic tensors with different dimensions whose elements
-# are interleaved. They can represent sites, spin states, etc. and contain
-# the number of particles occupying those states. E.g., 3 particles of
-# spin down occupying orbital s on site 2 correspond to a tensor with
-# three dimensions (a spin dimension and an orbital dimension) that is
-# the second token in the sequence.
-
 
 class SiteDegreeEmbedding(nn.Module):
     def __init__(
@@ -70,7 +63,6 @@ class SiteDegreeEmbedding(nn.Module):
         param_logits = self.param_embedding(params)
         token_logits = self.token_embedding(tokens)
 
-        # TODO: create an out buffer so that this serves as a kind of "operator"
         buf[:n_params, :, :] = param_logits
         buf[n_params:, :, :] = token_logits
 

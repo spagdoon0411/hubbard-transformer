@@ -17,9 +17,6 @@ class SimpleParamEmbedding(nn.Module):
     ):
         super(SimpleParamEmbedding, self).__init__()
 
-        # TODO: the interaction between parameters probably should not be captured
-        # linearly. Maybe use a few small rounds of self-attention?
-
         self.param_dims = n_params
         self.interaction_weights = nn.Parameter(torch.randn(n_params, n_params))
         self.n_param_to_target = nn.Parameter(torch.randn(target_dim, n_params))

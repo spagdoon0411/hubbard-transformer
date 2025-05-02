@@ -26,7 +26,6 @@ class PositionEncoding(nn.Module):
         # (seq, 1)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
 
-        # Static buffer allocated across model lifetime
         pe = torch.zeros(max_len, embed_dim)  # (max_len, d_model)
 
         # (embed // 2, )

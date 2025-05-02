@@ -36,9 +36,6 @@ class OccupationSpinEmbedding(nn.Module):
             ),
         )
 
-        # NOTE: we can't apply position encoding here; we still have
-        # parameters to handle.
-
     def forward(self, occupations: TensorType["seq", "batch", "..."]):
         """
         occupations: (seq, batch, d1, ..., dn)

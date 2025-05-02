@@ -9,8 +9,6 @@ class HubbardHamiltonian(nn.Module):
         self.t = t
         self.U = U
 
-    # TODO: think deeply about what tensor operation is actually going on here
-
     def assert_shapes(self, a: torch.Tensor, b: torch.Tensor):
         """
         Defines the shapes that are compatible for hopping-term computations
@@ -37,9 +35,6 @@ class HubbardHamiltonian(nn.Module):
             a_o,
             a_sp,
         )
-
-        # Batch size doesn't matter for hopping computations; we're generating every
-        # possible pairing
 
     def anticommutation_mask(self, indices, target_mask_length, inclusive=True):
         """

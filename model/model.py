@@ -112,7 +112,7 @@ class HubbardWaveFunction(nn.Module):
         Produces a basis meeting particle number constraints in the s b o sp format.
         """
 
-        # TODO: this is a leaf operation and should be ignored by grad
+        # TODO: how does autograd view this function?
 
         # Enumerate states equivalent under number of particles
         combinations = list(it.combinations(range(num_sites * 2), self.particle_number))
@@ -138,8 +138,6 @@ class HubbardWaveFunction(nn.Module):
 
         flat_states[particle_idx, row_idx] = 1
 
-        # What does the one_hot operation do again?
-        # TODO: we can only apply one_hot to LongTensors?
         flat_states = F.one_hot(
             ein.rearrange(flat_states, "s_sp nCk -> nCk s_sp"),
             num_classes=self.token_dims[0],
@@ -243,17 +241,12 @@ class HubbardWaveFunction(nn.Module):
             b=basis,
         )
 
-        # Psi is the wrong shape
-
-        # TODO: these had spins selected in the forward pass
         E_loc_terms = ein.einsum(
             entries,
             sampled_psi,
             basis_psi,
             "b h, s b sp, s h sp -> b",
         )
-
-        # TODO: does the expression above sum over spins?
 
         expect_E_loc = torch.sum(E_loc_terms) / b
         return expect_E_loc
@@ -267,9 +260,6 @@ class HubbardWaveFunction(nn.Module):
         Given a sequence of tokens and parameters, produces the probabilities and phases
         associated with the wave function that this model represents.
         """
-
-        # TODO: the caller should broadcast the params tensor to the batch size of the tokens
-        # before passing params into this
 
         assert (
             params.shape[0] == 5
@@ -287,7 +277,6 @@ class HubbardWaveFunction(nn.Module):
 
         # Gather does prob[i, j, k, l] = prob[i, j, idx[i, j, k, l], l]
 
-        # So this unsqueeze route was wrong
         idx = ein.rearrange(idx, "s b sp -> s b 1 sp")
         prob = prob.gather(-2, idx).squeeze(-2)  # s b sp
         phase = phase.gather(-2, idx).squeeze(-2)  # s b sp

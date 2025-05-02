@@ -47,9 +47,7 @@ class Sampling:
             raise NotImplementedError("Branching factors other than 1 not implemented")
 
         # Bring into simpler reshape space
-        # (R^-1) (S) (R)
 
-        # R
         prob_dist = ein.rearrange(
             prob_dist,
             "b o sp -> b sp o",
@@ -70,8 +68,6 @@ class Sampling:
         # S
         cat = Categorical(probs=prob_dist)
         next = cat.sample()
-
-        # R ^ {-1}
 
         # Map back to one-hot
         samples = F.one_hot(next, num_classes=token_flat_dim)
