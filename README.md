@@ -11,3 +11,7 @@ Run scripts as modules:
 ```python
 python -m optimization.optimization
 ```
+
+# Optimization
+
+`notebooks/optimization.ipynb` runs the optimization loop defined in `optimization/optimization.py` and preserves access to the model.
