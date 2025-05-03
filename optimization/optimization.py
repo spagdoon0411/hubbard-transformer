@@ -14,16 +14,18 @@ NEPTUNE_TRACKING = True
 
 load_dotenv(".env")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 def optimization_step(
     hamiltonian: HubbardHamiltonian,
     model: HubbardWaveFunction,
     optimizer: torch.optim.Optimizer,
     params: torch.Tensor,
-    batch_size: int, 
+    batch_size: int,
     n_sites: int,
 ) -> dict:
     """
-    One pass of backprop--so one round of batched autoregressive chain-building, 
+    One pass of backprop--so one round of batched autoregressive chain-building,
     one calculation of E_loc.
     """
 
@@ -50,11 +52,13 @@ def optimization_step(
     return e_loc_real, e_loc_imag
 
 
-def run_optimization(run_params: dict, device: torch.device, log_dir: str, run: Optional[Any]) -> dict:
+def run_optimization(
+    run_params: dict, device: torch.device, log_dir: str, run: Optional[Any]
+) -> dict:
     """
     A round of optimization as a function of run parameters.
-    
-    - run is the Neptune run logging object. 
+
+    - run is the Neptune run logging object.
     - run_params contains model parameters (e.g., number of layers, device).
     """
     ham = HubbardHamiltonian(t=run_params["t"], U=run_params["U"])
@@ -82,7 +86,7 @@ def run_optimization(run_params: dict, device: torch.device, log_dir: str, run: 
         [
             run_params["t"],  # N
             run_params["U"],
-            run_params["embed_dim"], 
+            run_params["embed_dim"],
             run_params["particle_number"],
             N_PARAMS,
         ]
@@ -110,8 +114,9 @@ def run_optimization(run_params: dict, device: torch.device, log_dir: str, run: 
     print("Optimization completed.")
 
     return {
-        "model":  model,
+        "model": model,
     }
+
 
 def main():
     # Create weight logging folders
@@ -122,12 +127,12 @@ def main():
     weight_dir = f"weights/{timestamp}"
 
     params = {
-        "learning_rate": 1e-3, 
+        "learning_rate": 1e-3,
         "batch_size": 32,
         "n_sites": 5,
         "embed_dim": 32,
         "n_heads": 2,
-        "n_layers": 2, 
+        "n_layers": 2,
         "dim_feedforward": 64,
         "particle_number": 3,
         "max_len": 100,
@@ -143,7 +148,7 @@ def main():
         run = neptune.init_run(
             project="spagdoon0411/condensed",
             api_token=os.environ["NEPTUNE_API_TOKEN"],
-        ) 
+        )
         run["parameters"] = params
 
     # Run the optimization loop, with tracking
@@ -154,5 +159,7 @@ def main():
         log_dir=weight_dir,
     )
 
+
 if __name__ == "__main__":
     main()
+
