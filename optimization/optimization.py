@@ -41,7 +41,7 @@ def optimization_step(
     # Estimate < E_loc > based on samples
     e_loc = model.e_loc(
         hamiltonian=hamiltonian,
-        params=torch.randn(N_PARAMS),  # type: ignore
+        params=params,  # type: ignore
         sampled_states=samples,  # type: ignore
     )
 
