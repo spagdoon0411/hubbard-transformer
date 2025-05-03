@@ -12,6 +12,12 @@ Run scripts as modules:
 python -m optimization.optimization
 ```
 
-# Optimization
+# Training Loop
 
-`notebooks/optimization.ipynb` runs the optimization loop defined in `optimization/optimization.py` and preserves access to the model.
+Neptune logging is configured. To use it, set
+
+```bash
+export NEPTUNE_API_TOKEN="..."
+```
+
+in .env.
