@@ -1,12 +1,19 @@
 from model.model import HubbardWaveFunction
 from model.hamiltonian import HubbardHamiltonian
 import torch
-from typing import Any
+from typing import Any, Optional
 import os
+import neptune
+from datetime import datetime
+from dotenv import load_dotenv
 
 # Fixed for this Hubbard model
 N_PARAMS = 5
 
+NEPTUNE_TRACKING = True
+
+load_dotenv(".env")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def optimization_step(
     hamiltonian: HubbardHamiltonian,
     model: HubbardWaveFunction,
@@ -15,6 +22,10 @@ def optimization_step(
     batch_size: int, 
     n_sites: int,
 ) -> dict:
+    """
+    One pass of backprop--so one round of batched autoregressive chain-building, 
+    one calculation of E_loc.
+    """
 
     optimizer.zero_grad()
 
@@ -39,7 +50,13 @@ def optimization_step(
     return e_loc_real, e_loc_imag
 
 
-def run_optimization(run: Any, run_params: dict, device: torch.device, log_dir: str) -> dict:
+def run_optimization(run_params: dict, device: torch.device, log_dir: str, run: Optional[Any]) -> dict:
+    """
+    A round of optimization as a function of run parameters.
+    
+    - run is the Neptune run logging object. 
+    - run_params contains model parameters (e.g., number of layers, device).
+    """
     ham = HubbardHamiltonian(t=run_params["t"], U=run_params["U"])
 
     model = HubbardWaveFunction(
@@ -51,7 +68,8 @@ def run_optimization(run: Any, run_params: dict, device: torch.device, log_dir: 
         max_len=run_params["max_len"],
     )
 
-    run["model/architecture"] = str(model)
+    if NEPTUNE_TRACKING:
+        run["model/architecture"] = str(model)
 
     model.to(device)
 
@@ -80,8 +98,9 @@ def run_optimization(run: Any, run_params: dict, device: torch.device, log_dir: 
             params=params,
         )
 
-        run["loss/epoch/e_loc_real"].log(e_loc_real.item())
-        run["loss/epoch/e_loc_imag"].log(e_loc_imag.item())
+        if NEPTUNE_TRACKING:
+            run["loss/epoch/e_loc_real"].log(e_loc_real.item())
+            run["loss/epoch/e_loc_imag"].log(e_loc_imag.item())
 
         if i % 10 == 0:
             print(f"Iteration {i}: Loss = {e_loc_real.item()}")
@@ -93,3 +112,47 @@ def run_optimization(run: Any, run_params: dict, device: torch.device, log_dir: 
     return {
         "model":  model,
     }
+
+def main():
+    # Create weight logging folders
+    if not os.path.exists("weights"):
+        os.makedirs("weights")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    os.makedirs(f"weights/{timestamp}", exist_ok=False)
+    weight_dir = f"weights/{timestamp}"
+
+    params = {
+        "learning_rate": 1e-3, 
+        "batch_size": 32,
+        "n_sites": 5,
+        "embed_dim": 32,
+        "n_heads": 2,
+        "n_layers": 2, 
+        "dim_feedforward": 64,
+        "particle_number": 3,
+        "max_len": 100,
+        "t": 1.0,
+        "U": 2.0,
+        "epochs": 10000,
+        "device": str(device),
+    }
+
+    # Set up Neptune tracking
+    run = None
+    if NEPTUNE_TRACKING:
+        run = neptune.init_run(
+            project="spagdoon0411/condensed",
+            api_token=os.environ["NEPTUNE_API_TOKEN"],
+        ) 
+        run["parameters"] = params
+
+    # Run the optimization loop, with tracking
+    run_optimization(
+        run=run,
+        run_params=params,
+        device=device,
+        log_dir=weight_dir,
+    )
+
+if __name__ == "__main__":
+    main()
