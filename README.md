@@ -14,6 +14,14 @@ python -m optimization.optimization
 
 # Training Loop
 
+Use
+
+```python
+python -m optimization.optimization
+```
+
+to run the training loop. Configure run and system params in `optimization/optimization.py`.
+
 Neptune logging is configured. To use it, set
 
 ```bash
