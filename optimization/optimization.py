@@ -23,7 +23,7 @@ def optimization_step(
     params: torch.Tensor,
     batch_size: int,
     n_sites: int,
-) -> dict:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     One pass of backprop--so one round of batched autoregressive chain-building,
     one calculation of E_loc.
@@ -72,7 +72,7 @@ def run_optimization(
         max_len=run_params["max_len"],
     )
 
-    if NEPTUNE_TRACKING:
+    if NEPTUNE_TRACKING and run is not None:
         run["model/architecture"] = str(model)
 
     model.to(device)
@@ -102,7 +102,7 @@ def run_optimization(
             params=params,
         )
 
-        if NEPTUNE_TRACKING:
+        if NEPTUNE_TRACKING and run is not None:
             run["loss/epoch/e_loc_real"].log(e_loc_real.item())
             run["loss/epoch/e_loc_imag"].log(e_loc_imag.item())
 
@@ -128,11 +128,11 @@ def main():
 
     params = {
         "learning_rate": 1e-3,
-        "batch_size": 32,
-        "n_sites": 5,
+        "batch_size": 64,
+        "n_sites": 3,
         "embed_dim": 32,
-        "n_heads": 2,
-        "n_layers": 2,
+        "n_heads": 1,
+        "n_layers": 1,
         "dim_feedforward": 64,
         "particle_number": 3,
         "max_len": 100,
