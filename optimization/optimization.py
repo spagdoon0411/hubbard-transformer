@@ -108,7 +108,7 @@ def run_optimization(
 
         if i % 10 == 0:
             print(f"Iteration {i}: Loss = {e_loc_real.item()}")
-            pth = os.path.join(log_dir, f"epoch_{i}")
+            pth = os.path.join(log_dir, f"epoch_{i}.pt")
             torch.save(model.state_dict(), pth)
 
     print("Optimization completed.")
