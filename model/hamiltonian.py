@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import einops as ein
+from scipy.sparse.linalg import eigsh
 
 
 class HubbardHamiltonian(nn.Module):
@@ -46,6 +47,37 @@ class HubbardHamiltonian(nn.Module):
         indices = ein.rearrange(indices, "j -> j 1")
         mask = counter >= indices if inclusive else counter > indices
         return mask
+
+        """
+        Find the expected ground state eigenvalue
+        """
+
+    def ground_state(
+        self,
+        basis: torch.Tensor,
+        report: bool = False,
+    ) -> dict:
+        """
+        Given a basis, computes the expected ground state energy. Returns the smallest algebraic eigenvalue, with other tangential information.
+        """
+
+        a = basis
+        b = basis
+        entries = self.term(a, b)
+        as_np = entries.cpu().numpy()
+        eigvals_SA, eigvecs_SA = eigsh(as_np, k=1, which="SA")
+        eigvals_LM, eigvecs_LM = eigsh(as_np, k=1, which="LM")
+
+        if report:
+            print(f"Ground state energy (SA): {eigvals_SA}")
+            print(f"Ground state energy (LM): {eigvals_LM}")
+
+        return {
+            "eigval_SA": eigvals_SA,
+            "eigvec_SA": eigvecs_SA,
+            "eigval_LM": eigvals_LM,
+            "eigvec_LM": eigvecs_LM,
+        }
 
     def term(
         self,
