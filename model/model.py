@@ -78,6 +78,7 @@ class HubbardWaveFunction(nn.Module):
         num_chains: int,
         chain_length: int,
         params: TensorType["n_params"],
+        compute_log_prob: bool = False,
     ):
         """
         Produces num_chains most-probable token chains of length chain_length based
@@ -96,11 +97,16 @@ class HubbardWaveFunction(nn.Module):
             num_chains,
             *self.embedding.input_token_dims,
         )
-        chains = self.sampling.sample(
+        chains, log_probs = self.sampling.sample(
             params=params,
             tokens=tokens,  # type: ignore
             up_to=chain_length,
+            compute_log_prob=True,
         )
+
+        if compute_log_prob:
+            return chains, log_probs
+
         return chains
 
     @lru_cache(maxsize=None)  # Ideally we only cache once
@@ -248,8 +254,33 @@ class HubbardWaveFunction(nn.Module):
             "b h, s b sp, s h sp -> b",
         )
 
-        expect_E_loc = torch.sum(E_loc_terms) / b
-        return expect_E_loc
+        return E_loc_terms
+
+    def surrogate_loss(self, log_probs, e_loc_values):
+        """
+        Takes samples of E_loc over a representative distribution and computes
+
+        # The big question: if these are equivalent, what difference would it make
+        # to use the surrogate loss?
+
+        # An answer: the surrogate loss ropes in the probability distribution,
+        # which is not fully involved in the computation graph if we're just
+        # taking samples.
+
+        d_theta [ < E_loc(x) > ]
+        = < E_loc(x) * d_theta [ log p(x; theta) ] >
+        = (1 / N) sum_x ( E_loc(x) * d_theta [ log p(x; theta) ] )
+        = d_theta [ (1 / N) sum_x ( E_loc(x) * log p(x; theta) ) ]
+
+        ...which we know to be the gradient of the expectation of E_loc. We
+        can apply the regular score function sampling because E_loc is a function
+        of the samples themselves, not of model params.
+
+        for those values.
+        """
+
+        loss = ein.reduce(log_probs * e_loc_values, "b -> ", reduction="mean")
+        return loss
 
     def forward(
         self,

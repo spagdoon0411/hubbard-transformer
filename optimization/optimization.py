@@ -2,6 +2,7 @@ from model.model import HubbardWaveFunction
 from model.hamiltonian import HubbardHamiltonian
 import torch
 from typing import Any, Optional
+import pdb
 import os
 import neptune
 from datetime import datetime
@@ -23,7 +24,7 @@ def optimization_step(
     params: torch.Tensor,
     batch_size: int,
     n_sites: int,
-) -> tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     One pass of backprop--so one round of batched autoregressive chain-building,
     one calculation of E_loc.
@@ -31,11 +32,14 @@ def optimization_step(
 
     optimizer.zero_grad()
 
+    # TODO: one of the nodes required in a computation graph was updated
+
     # Sample from the wave function
-    samples = model.sample(
+    samples, log_probs = model.sample(
         num_chains=batch_size,
         chain_length=n_sites,
         params=params,  # type: ignore
+        compute_log_prob=True,
     )
 
     # Estimate < E_loc > based on samples
@@ -46,10 +50,30 @@ def optimization_step(
     )
 
     e_loc_real, e_loc_imag = e_loc.real, e_loc.imag
-    e_loc_real.backward()
+
+    # TODO: work backward, disabling grad until you hit the issues
+    loss = model.surrogate_loss(
+        log_probs=log_probs,
+        e_loc_values=e_loc_real,
+    )
+
+    loss.backward()
+
+    # TODO: we need to find the probs associated with those sampled states
+    # as a function of model parameters.
+
+    # TODO: if we were to embed these samples and use their probs in the log
+    # probs calculations, would we get the right thing? Or do we need to accumulate
+    # a log probs buffer across the whole sampling run? This is probably safer.
+
+    # TODO: empirically ascertain whether the probs we get upon embedding the
+    # whole sequence are the same as the probs we get from step-by-step sampling?
+    # Ideally if this is autoregressive and our attention masks are correct the
+    # prior tokens should entirely determine the probabilities of the next token.
+
     optimizer.step()
 
-    return e_loc_real, e_loc_imag
+    return loss, e_loc_real.mean(), e_loc_imag.mean()
 
 
 def run_optimization(
@@ -61,6 +85,7 @@ def run_optimization(
     - run is the Neptune run logging object.
     - run_params contains model parameters (e.g., number of layers, device).
     """
+
     ham = HubbardHamiltonian(t=run_params["t"], U=run_params["U"])
 
     model = HubbardWaveFunction(
@@ -93,7 +118,7 @@ def run_optimization(
     )
 
     for i in range(run_params["epochs"]):
-        e_loc_real, e_loc_imag = optimization_step(
+        loss, e_loc_real, e_loc_imag = optimization_step(
             batch_size=run_params["batch_size"],
             n_sites=run_params["n_sites"],
             hamiltonian=ham,
@@ -103,11 +128,12 @@ def run_optimization(
         )
 
         if NEPTUNE_TRACKING and run is not None:
+            run["loss/epoch/loss"].log(loss.item())
             run["loss/epoch/e_loc_real"].log(e_loc_real.item())
             run["loss/epoch/e_loc_imag"].log(e_loc_imag.item())
 
         if i % 10 == 0:
-            print(f"Iteration {i}: Loss = {e_loc_real.item()}")
+            print(f"Iteration {i}: E_loc = {e_loc_real.item()} Loss = {loss.item()}")
             pth = os.path.join(log_dir, f"epoch_{i}.pt")
             torch.save(model.state_dict(), pth)
 
@@ -162,4 +188,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
