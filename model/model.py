@@ -59,6 +59,7 @@ class HubbardWaveFunction(nn.Module):
         self.transformer_encoder = nn.TransformerEncoder(
             self.encoder_layer,
             num_layers=n_layers,
+            mask_check=True,
         )
 
         self.deembedding = HubbardDeembedding(
@@ -66,11 +67,20 @@ class HubbardWaveFunction(nn.Module):
             target_token_dims=token_dims,
         )
 
+        sampling_mask = torch.tril(
+            torch.ones(
+                max_len,
+                max_len,
+            )
+        )
+
         self.sampling = Sampling(
             embed_dim=embed_dim,
             particle_number=particle_number,
             embedding_function=self.embedding,
             deembedding_function=self.deembedding,
+            transformer_encoder=self.transformer_encoder,
+            mask=sampling_mask,
         )
 
     def sample(
