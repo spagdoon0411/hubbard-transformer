@@ -161,8 +161,7 @@ class HubbardHamiltonian(nn.Module):
         # For leftward hops the creation and annihilation operator make the same number of
         # anticommutations. Rightward hops involve one more
         num_hops = 2 * relevant_states.sum(dim=0)  # num_linked
-        num_hops[right_hops_new_space] += 1
 
         parity = num_hops % 2  # (num_linked)
-        entries[b_idx, h_idx] = torch.where(parity == 0, self.t, -self.t)
+        entries[b_idx, h_idx] = torch.where(parity == 0, -self.t, self.t)
         return entries
