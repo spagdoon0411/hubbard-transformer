@@ -30,7 +30,7 @@ class HubbardWaveFunction(nn.Module):
         super(HubbardWaveFunction, self).__init__()
 
         n_params = 5  # t, U, mu, chain length, particle number
-        token_dims = [2, 2]  # TODO: occupation, spin?
+        token_dims = [2, 2]
         input_token_rearrange = "o sp -> (o sp)"
 
         self.token_dims = token_dims
@@ -94,8 +94,6 @@ class HubbardWaveFunction(nn.Module):
         Produces num_chains most-probable token chains of length chain_length based
         on the wave function this model represents.
         """
-
-        # TODO: why do we infinite loop on sampling
 
         params = ein.repeat(
             params,
@@ -189,8 +187,6 @@ class HubbardWaveFunction(nn.Module):
             Basis state vectors in s h o sp format. Wave function values are to be aligned
             along the h ("Hilbert") axis.
         """
-
-        # TODO: here, params should not be pre-broadcast
 
         basis = self.generate_basis(num_sites=num_sites)  # (s, h, o, sp)
         s, h, o, sp = basis.shape

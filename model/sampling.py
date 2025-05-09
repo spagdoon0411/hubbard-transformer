@@ -73,8 +73,6 @@ class Sampling:
         prob_dist = prob_dist.flatten(start_dim=flatten_point)
 
         # S
-        # TODO: store the log probs of the particular token that we sampled
-        # during sampling, so that we can retrieve them later
         cat = Categorical(probs=prob_dist)
         next = cat.sample()  # (b, sp)
         log_prob = cat.log_prob(next)  # (b, sp)
@@ -104,7 +102,6 @@ class Sampling:
             # b o sp, b sp
             return samples, log_prob
 
-        # TODO: Return samples, log_prob so that future calls can use log_prob in
         return samples
 
     def _enforce_particle_num(
@@ -220,8 +217,6 @@ class Sampling:
         )
 
         # Log-probs associated with sampling this whole chain
-        # TODO: can we assert that these are the probs associated with the
-        # wave function?
         chain_log_probs = torch.zeros(batch)
 
         for i in range(n_tokens, up_to):

@@ -96,9 +96,6 @@ def test_hopping_1(simple_ham):
     assert h_a_b[0, 0].item() == simple_ham.t, "Hopping Hamiltonian has wrong entry."
 
 
-# TODO: create a Hamiltonian manually. What order will the basis be in?
-
-
 class CreationAnnihilation:
     def __init__(self, max_occs: int):
         d = torch.arange(1, max_occs + 1)
@@ -236,8 +233,6 @@ def test_batching(simple_ham):
     Some simple cases testing that batching doesn't explode.
     """
 
-    # TODO: translate these indices to Hamiltonian indices
-
     str1 = spin_occupation_site_basis(3, 2)
     str2 = spin_occupation_site_basis(3, 2)
 
@@ -262,8 +257,6 @@ def test_three_site_entries(simple_ham):
     """
     Some simple cases testing that batching doesn't explode.
     """
-
-    # TODO: translate these indices to Hamiltonian indices
 
     str1 = spin_occupation_site_basis(3, 2)
     str2 = spin_occupation_site_basis(3, 2)

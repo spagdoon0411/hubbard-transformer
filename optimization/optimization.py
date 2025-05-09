@@ -32,8 +32,6 @@ def optimization_step(
 
     optimizer.zero_grad()
 
-    # TODO: one of the nodes required in a computation graph was updated
-
     # Sample from the wave function
     samples, log_probs = model.sample(
         num_chains=batch_size,
@@ -51,25 +49,12 @@ def optimization_step(
 
     e_loc_real, e_loc_imag = e_loc.real, e_loc.imag
 
-    # TODO: work backward, disabling grad until you hit the issues
     loss = model.surrogate_loss(
         log_probs=log_probs,
         e_loc_values=e_loc_real,
     )
 
     loss.backward()
-
-    # TODO: we need to find the probs associated with those sampled states
-    # as a function of model parameters.
-
-    # TODO: if we were to embed these samples and use their probs in the log
-    # probs calculations, would we get the right thing? Or do we need to accumulate
-    # a log probs buffer across the whole sampling run? This is probably safer.
-
-    # TODO: empirically ascertain whether the probs we get upon embedding the
-    # whole sequence are the same as the probs we get from step-by-step sampling?
-    # Ideally if this is autoregressive and our attention masks are correct the
-    # prior tokens should entirely determine the probabilities of the next token.
 
     optimizer.step()
 
