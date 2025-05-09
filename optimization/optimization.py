@@ -157,7 +157,7 @@ def main():
     run = None
     if NEPTUNE_TRACKING:
         run = neptune.init_run(
-            project="spagdoon0411/condensed",
+            project="spagdoon0411/hubbard-model",
             api_token=os.environ["NEPTUNE_API_TOKEN"],
         )
         run["parameters"] = params
