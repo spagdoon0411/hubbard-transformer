@@ -159,6 +159,7 @@ def main():
         run = neptune.init_run(
             project="spagdoon0411/hubbard-model",
             api_token=os.environ["NEPTUNE_API_TOKEN"],
+            tags=["importance/recents"],
         )
         run["parameters"] = params
 
