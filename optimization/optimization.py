@@ -138,18 +138,18 @@ def main():
     weight_dir = f"weights/{timestamp}"
 
     params = {
-        "learning_rate": 1e-3,
+        "learning_rate": 1e-1,
         "batch_size": 64,
-        "n_sites": 3,
+        "n_sites": 4,
         "embed_dim": 32,
         "n_heads": 1,
         "n_layers": 1,
         "dim_feedforward": 64,
-        "particle_number": 3,
+        "particle_number": 4,
         "max_len": 100,
         "t": 1.0,
         "U": 2.0,
-        "epochs": 10000,
+        "epochs": 1000,
         "device": str(device),
     }
 
