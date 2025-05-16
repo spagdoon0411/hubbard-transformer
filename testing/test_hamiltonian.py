@@ -35,8 +35,6 @@ def expand_str_chain(chain: str):
     """
     Expands a canonical-ordering binary encoding of a
     basis state into a token tensor of shape (s, 1, o, sp).
-
-    Only accepts single bases for now.
     """
 
     if len(chain) % 2 != 0:
@@ -317,7 +315,7 @@ def test_three_site_entries(simple_ham, str1, str2, expected):
 
 def test_batched_entries(simple_ham):
     """
-    Tests the hopping Hamiltonian for a batch of entries.
+    Tests computation of batched entries.
     """
 
     # Generate a batch of basis states
@@ -335,8 +333,6 @@ def test_batched_entries(simple_ham):
     assert h_a_b.shape == (len(str1), len(str2)), "Hopping Hamiltonian has wrong shape"
 
 
-# Tests the function used to count the number of signs picked up by the creation
-# and annihilation operators
 @pytest.mark.parametrize(
     "i_c, i_a, hopped_operators, expected",
     [
@@ -379,6 +375,9 @@ def test_batched_entries(simple_ham):
     ],
 )
 def test_hop_counting(i_c, i_a, hopped_operators, expected):
+    """
+    Counting of creation/annihilation sign flips (not hops).
+    """
     ham = HubbardHamiltonian(i_c, i_a)
     assert ham.count_hops(i_c, i_a, hopped_operators) == expected
 
