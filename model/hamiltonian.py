@@ -72,7 +72,9 @@ class HubbardHamiltonian(nn.Module):
         counter = torch.arange(0, target_mask_length)
         counter = ein.rearrange(counter, "i -> 1 i")
         indices = ein.rearrange(indices, "j -> j 1")
-        mask = counter >= indices if inclusive else counter > indices
+
+        # Inclusive: whether to include the boundary in the masked region
+        mask = counter > indices if inclusive else counter >= indices
         return mask
 
         """
