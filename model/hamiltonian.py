@@ -1,5 +1,7 @@
+from typing import Literal
 import torch
 from torch import nn
+import numpy as np
 import einops as ein
 from scipy.sparse.linalg import eigsh
 
@@ -92,7 +94,7 @@ class HubbardHamiltonian(nn.Module):
 
         a = basis
         b = basis
-        entries = self.term(a, b)
+        entries = self.entry(a, b)
         as_np = entries.cpu().numpy()
         eigvals_SA, eigvecs_SA = eigsh(as_np, k=1, which="SA")
         eigvals_LM, eigvecs_LM = eigsh(as_np, k=1, which="LM")
@@ -108,22 +110,90 @@ class HubbardHamiltonian(nn.Module):
             "eigvec_LM": eigvecs_LM,
         }
 
-    def term(
+    def count_hops(
+        self,
+        creation_idx: torch.Tensor,
+        annihilation_idx: torch.Tensor,
+        creation_operators: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        creation_idx: (batch, )
+            - Index of the particle hole the creation operator is targeting
+        annihilation_idx: (batch, )
+            - Index of the creation operator the annihilation operator is targeting
+        operators: ((s sp), batch)
+            - Binary (not bitmap) tensor of site population in canonical order.
+
+        It should not be the case that a creation operator targets a site already
+        populated; this function ignores this case. Annihilation is dealt with
+        symmetrically.
+
+        Computes the number of sign inversions associated with these hopping target indices,
+        using a tensor indicating operators to hop over.
+        """
+
+        (b,) = creation_idx.shape
+
+        l_idx = torch.where(
+            creation_idx < annihilation_idx,
+            creation_idx,
+            annihilation_idx,
+        )
+
+        r_idx = torch.where(
+            creation_idx > annihilation_idx,
+            creation_idx,
+            annihilation_idx,
+        )
+
+        hops_mask = ein.rearrange(
+            self.two_index_anticommutation_mask(
+                l_idx=l_idx,
+                r_idx=r_idx,
+                target_mask_length=creation_operators.shape[0],
+                include_left=False,
+                include_right=False,
+            ),
+            "b s_sp -> s_sp b",
+        )
+
+        hopped_ops = creation_operators.clone()
+        hopped_ops[~hops_mask] = 0
+        hops = hopped_ops.sum(dim=0)  # (b, )
+        return hops
+
+    def flat_tokens_to_string(self, a: torch.Tensor):
+        """
+        Takes a binary tensor to a string of 0s and 1s
+        """
+        to_string = lambda x: "".join([str(int(i)) for i in x])
+        arr = a.numpy()
+        strings = np.apply_along_axis(
+            to_string,
+            axis=0,
+            arr=arr,
+        )
+        return strings
+
+    def tokens_to_string(self, a: torch.Tensor):
+        """
+        Takes a chain in s b o sp to a string of 0s and 1s
+        (using canonical spin order)
+        """
+        flattened = ein.rearrange(
+            a,
+            "s b o sp -> (s sp) b o",
+        )
+        flattened = flattened.argmax(dim=-1)  # (s sp) b
+        return self.flat_tokens_to_string(flattened)
+
+    def entry(
         self,
         a: torch.Tensor,
         b: torch.Tensor,
         site_stride: int = 2,
+        periodic: bool = False,
     ):
-        """
-        Takes two basis states, possibly batched, and computes their Hamiltonian entry.
-        Returns a batched vector of entries corresponding to the basis states.
-
-        a: (s b o sp) - Arguments to E_loc
-        b: (s b o sp) - Sites to use as basis states
-        site_stride - When flattened and occupations argmax'd, how many entries correspond to each site?
-        w: TODO: estimated weights to use for basis states in E_loc calculations
-        """
-
         # Ensure they have the right dimensions
         (seq_dim, (batch_dim, hilbert_dim), occ_dim, spin_dim) = self.assert_shapes(
             a, b
@@ -138,59 +208,64 @@ class HubbardHamiltonian(nn.Module):
         a_bin = ein.rearrange(a_bin, "s_sp b -> s_sp b 1")
         b_bin = ein.rearrange(b_bin, "s_sp h -> s_sp 1 h")
 
+        # Buffer to populate with Hamiltonian values
         entries = torch.zeros(batch_dim, hilbert_dim)
 
-        # TODO: can we make this roll less memory inefficient?
-
-        # This is the difference from the basis state to the argument
         diffs = a_bin - b_bin  # (s sp) b h
-        diffs_abs = diffs.abs().sum(dim=0)  # b h
-        entries[diffs_abs == 0] = self.U
 
-        # Matches the entries in pairing with the entries to their right
-        diffs_right = diffs.roll(shifts=-site_stride, dims=0)  # (s sp) b h
+        # a - b on the right paired with a - b on the left
+        diffs_right = torch.roll(
+            diffs,
+            shifts=-site_stride,
+            dims=0,
+        )  # (s sp) b h
 
-        right_hops = (diffs_right == 1) & (diffs == -1)  # (s sp) b h, rightward hopping
-        left_hops = (diffs_right == -1) & (diffs == 1)  # (s sp) b h, leftward hopping
-        single_right_hops = right_hops.sum(dim=0) == 1  # b h
-        single_left_hops = left_hops.sum(dim=0) == 1  # b h
-        right_hops &= single_right_hops.unsqueeze(0)
-        left_hops &= single_left_hops.unsqueeze(0)  # (s sp) b h
+        # TODO: handle a length-two chain?
+        if not periodic and diffs_right.shape[0] >= 2:
+            diffs_right[[-2, -1], :, :] = 0
 
-        one_away = diffs_abs == 2  # b h
-        right_hops &= one_away.unsqueeze(0)
-        left_hops &= one_away.unsqueeze(0)
+        connections = (diffs == 1) & (diffs_right == -1)  # (s sp) b h
+        connections |= (diffs == -1) & (diffs_right == 1)  # (s sp) b h
+        one_away = (connections.sum(dim=0) == 1) & (diffs.abs().sum(dim=0) == 2)  # b h
 
-        # Obtains hopping sequence indices
-        s_idx, b_idx, h_idx = torch.nonzero(
-            right_hops | left_hops,  # can't have both rightward and leftward hopping
+        # Debug individual pairs
+        # l = "111010"
+        # r = "101011"
+        # if (
+        #     self.flat_tokens_to_string(a_bin[:, 0]) == l
+        #     and self.flat_tokens_to_string(b_bin[:, 0]) == r
+        # ):
+        #     ipdb.set_trace()
+
+        diagonals = diffs.abs().sum(dim=0) == 0
+        entries[diagonals] = self.U
+
+        # Chains that are one away
+        diffs_connected = diffs[:, one_away]  # (s sp) num_connected
+        creation_idx = diffs_connected.argmax(dim=0)  # num_connected
+        annihilation_idx = diffs_connected.argmin(dim=0)  # num_connected
+
+        _, h_idx = torch.nonzero(
+            one_away,
             as_tuple=True,
-        )  # (num_linked)
-
-        # Zero out operators not involved in hopping
-        hopped_operators_antimask = self.anticommutation_mask(
-            indices=s_idx, target_mask_length=seq_dim * spin_dim, inclusive=True
-        )  # (num_linked, (s sp))
-
-        hopped_operators_antimask = ein.rearrange(
-            hopped_operators_antimask,
-            "j s_sp -> s_sp j",
         )
 
-        # This selects the states that participate in hopping
-        relevant_states = b_bin[:, :, h_idx]
-        relevant_states = ein.rearrange(
-            relevant_states,
+        creation_operators = ein.rearrange(
+            b_bin[:, :, h_idx],
             "s_sp 1 h -> s_sp h",
         )
 
-        right_hops_new_space = single_right_hops[b_idx, h_idx]
-        relevant_states[hopped_operators_antimask] = 0
+        # TODO: operators is the number of states hopped
+        num_hops = self.count_hops(
+            creation_idx=creation_idx,
+            annihilation_idx=annihilation_idx,
+            creation_operators=creation_operators,
+        )
 
-        # For leftward hops the creation and annihilation operator make the same number of
-        # anticommutations. Rightward hops involve one more
-        num_hops = 2 * relevant_states.sum(dim=0)  # num_linked
+        entries[one_away] = torch.where(
+            num_hops % 2 == 0,
+            -self.t,
+            self.t,
+        )
 
-        parity = num_hops % 2  # (num_linked)
-        entries[b_idx, h_idx] = torch.where(parity == 0, -self.t, self.t)
         return entries

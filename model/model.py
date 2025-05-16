@@ -248,7 +248,7 @@ class HubbardWaveFunction(nn.Module):
             phases=phases,  # s b sp
         )  # (s b sp)
 
-        entries = hamiltonian.term(
+        entries = hamiltonian.entry(
             a=sampled_states,
             b=basis,
         )

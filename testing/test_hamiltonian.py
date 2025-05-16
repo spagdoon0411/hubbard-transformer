@@ -21,6 +21,16 @@ def simple_ham():
     return HubbardHamiltonian(t=1.0, U=2.0)
 
 
+def test_hermitian(simple_ham):
+    basis = spin_occupation_site_basis(3, 2)
+    basis = expand_str_chains(basis)
+    h_a_b = simple_ham.entry(basis, basis)
+
+    assert torch.all(
+        h_a_b.transpose(0, 1).conj().isclose(h_a_b)
+    ), "Hamiltonian is not Hermitian."
+
+
 def expand_str_chain(chain: str):
     """
     Expands a canonical-ordering binary encoding of a
@@ -69,31 +79,6 @@ def display_test_tokens(test_str: str):
     tokens = expand_str_chain(test_str)
     print(f"Tokens for {test_str}:")
     print(tokens)
-
-
-# TODO: test two-site hopping explicitly
-def test_hopping_1(simple_ham):
-    """
-    Can we compute hopping terms for simple basis configurations?
-    """
-
-    # We can obtain state 2 from state 1 by hopping once.
-    str1, str2 = "011110", "110110"
-    a, b = expand_str_chain(str1), expand_str_chain(str2)
-    h_a_b = simple_ham.term(a, b)
-
-    # <011110|H|110110>
-    # <011110|c2u a1u|110110>
-    # <011110|c2u a1u c1u c1d c2d c3u|0>
-    # <011110|c2u (1 - c1u a1u) c1d c2d c3u|0>
-    # <011110|c2u c1d c2d c3u - c2u c1u a1u c1d c2d c3u|0>
-    # <011110|c2u c1d c2d c3u|0>
-    # - <011110|c1d c2u c2d c3u|0>
-    # - <011110|011110>
-    # -1
-
-    assert h_a_b.shape == (1, 1), "Hopping Hamiltonian has wrong shape"
-    assert h_a_b[0, 0].item() == simple_ham.t, "Hopping Hamiltonian has wrong entry."
 
 
 class CreationAnnihilation:
@@ -239,7 +224,7 @@ def test_batching(simple_ham):
     a = expand_str_chains(str1)
     b = expand_str_chains(str2)  # (s b o sp)
 
-    h_a_b = simple_ham.term(a, b)  # (b_a, b_b)
+    h_a_b = simple_ham.entry(a, b)  # (b_a, b_b)
     if HEATMAPS:
         display_heatmap(
             h_a_b,
@@ -253,32 +238,149 @@ def test_batching(simple_ham):
     assert h_a_b.shape == (len(str1), len(str2)), "Hopping Hamiltonian has wrong shape"
 
 
-def test_three_site_entries(simple_ham):
+@pytest.mark.parametrize(
+    "str1, str2, expected",
+    [
+        ("0000", "0000", "U"),
+        ("0001", "0000", 0.0),
+        ("0001", "0001", "U"),
+        ("0010", "0001", 0.0),
+        ("0100", "0001", -1.0),
+        ("1000", "0010", -1.0),
+        ("0010", "1000", -1.0),
+        ("0010", "0010", "U"),
+        ("0011", "0011", "U"),
+        ("0100", "0010", 0.0),
+        ("0101", "0101", "U"),
+    ],
+)
+def test_two_site_entries(simple_ham, str1, str2, expected):
     """
-    Some simple cases testing that batching doesn't explode.
+    Parameterized test for two-site Hamiltonian entries.
+    """
+    # Expand the string chains
+    a = expand_str_chains([str1])
+    b = expand_str_chains([str2])  # (s b o sp)
+
+    # Compute the Hamiltonian terms
+    h_a_b = simple_ham.entry(a, b)  # (b_a, b_b)
+
+    # Validate the expected value
+    if expected == "U":
+        assert (
+            h_a_b[0, 0] == simple_ham.U
+        ), f"Expected h_a_b[0, 0] to be {simple_ham.U}."
+    else:
+        assert h_a_b[0, 0] == expected, f"Expected h_a_b[0, 0] to be {expected}."
+
+
+@pytest.mark.parametrize(
+    "str1, str2, expected",
+    [
+        ("000000", "000000", "U"),
+        ("000001", "000000", 0.0),
+        ("000001", "000001", "U"),
+        ("000001", "000011", 0.0),
+        ("010100", "010001", -1.0),
+        ("010001", "010100", -1.0),
+        ("110010", "101101", 0.0),
+        ("110010", "110010", 2.0),
+        ("000001", "000000", 0.0),
+        ("000001", "000001", 2.0),
+        ("111110", "000111", 0.0),
+        ("111110", "111011", 1.0),
+        ("111011", "111110", 1.0),
+        ("011100", "011001", -1.0),
+        ("011110", "110110", 1.0),
+    ],
+)
+def test_three_site_entries(simple_ham, str1, str2, expected):
+    """
+    Parameterized test for simple cases testing that batching doesn't explode.
     """
 
+    # Expand the string chains
+    a = expand_str_chains([str1])
+    b = expand_str_chains([str2])  # (s b o sp)
+
+    # Compute the Hamiltonian terms
+    h_a_b = simple_ham.entry(a, b)  # (b_a, b_b)
+
+    # Validate the expected value
+    if expected == "U":
+        assert (
+            h_a_b[0, 0] == simple_ham.U
+        ), f"Expected h_a_b[0, 0] to be {simple_ham.U}."
+    else:
+        assert h_a_b[0, 0] == expected, f"Expected h_a_b[0, 0] to be {expected}."
+
+
+def test_batched_entries(simple_ham):
+    """
+    Tests the hopping Hamiltonian for a batch of entries.
+    """
+
+    # Generate a batch of basis states
     str1 = spin_occupation_site_basis(3, 2)
     str2 = spin_occupation_site_basis(3, 2)
 
+    # Expand the string chains
     a = expand_str_chains(str1)
     b = expand_str_chains(str2)  # (s b o sp)
 
-    h_a_b = simple_ham.term(a, b)  # (b_a, b_b)
-    assert str1[1] == "000001" and str2[0] == "000000"
-    assert h_a_b[1, 0] == 0.0
+    # Compute the Hamiltonian terms
+    h_a_b = simple_ham.entry(a, b)  # (b_a, b_b)
 
-    assert str1[1] == "000001" and str2[1] == "000001"
-    assert h_a_b[1, 1] == 2.0
+    # Validate the shape of the result
+    assert h_a_b.shape == (len(str1), len(str2)), "Hopping Hamiltonian has wrong shape"
 
-    assert str1[1] == "000001" and str2[3] == "000011"
-    assert h_a_b[1, 3] == 0.0
 
-    assert str1[20] == "010100" and str2[17] == "010001"
-    assert h_a_b[20, 17] == -1.0
-
-    assert str1[50] == "110010" and str2[45] == "101101"
-    assert h_a_b[50, 45] == 0.0
+# Tests the function used to count the number of signs picked up by the creation
+# and annihilation operators
+@pytest.mark.parametrize(
+    "i_c, i_a, hopped_operators, expected",
+    [
+        (
+            torch.tensor([0]),
+            torch.tensor([1]),
+            torch.tensor([[0, 1, 1]]).T,
+            torch.tensor([0]),
+        ),
+        (
+            torch.tensor([0]),
+            torch.tensor([2]),
+            torch.tensor([[0, 1, 1]]).T,
+            torch.tensor([1]),
+        ),
+        (
+            torch.tensor([0]),
+            torch.tensor([2]),
+            torch.tensor([[0, 0, 1]]).T,
+            torch.tensor([0]),
+        ),
+        (
+            torch.tensor([0]),
+            torch.tensor([5]),
+            torch.tensor([[0, 0, 1, 1, 0, 1]]).T,
+            torch.tensor([2]),
+        ),
+        (
+            torch.tensor([1]),
+            torch.tensor([5]),
+            torch.tensor([[1, 0, 1, 1, 0, 1]]).T,
+            torch.tensor([2]),
+        ),
+        (
+            torch.tensor([5]),
+            torch.tensor([1]),
+            torch.tensor([[1, 0, 1, 1, 0, 1]]).T,
+            torch.tensor([2]),
+        ),
+    ],
+)
+def test_hop_counting(i_c, i_a, hopped_operators, expected):
+    ham = HubbardHamiltonian(i_c, i_a)
+    assert ham.count_hops(i_c, i_a, hopped_operators) == expected
 
 
 def display_heatmap(
