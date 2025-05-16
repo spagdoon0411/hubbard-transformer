@@ -268,4 +268,36 @@ class HubbardHamiltonian(nn.Module):
             self.t,
         )
 
+        diagonals = diffs.abs().sum(dim=0) == 0  # b h
+        _, h_idx = torch.nonzero(
+            diagonals,
+            as_tuple=True,
+        )
+
+        diagonal_kets = ein.rearrange(
+            b_bin[:, :, h_idx],
+            "s_sp 1 num_diags -> s_sp num_diags",
+        )
+
+        even_alignment = torch.arange(0, seq_dim * spin_dim) % 2 == 0  # s sp
+        even_alignment = ein.rearrange(
+            even_alignment,
+            "s_sp -> s_sp 1",
+        )
+
+        immediate_right = diagonal_kets.roll(
+            shifts=-1,  # Finding paired spins
+            dims=0,
+        )  # (s sp) num_diags
+
+        if not periodic and immediate_right.shape[0] >= 1:
+            immediate_right[[-1], :] = 0
+
+        pairs = (diagonal_kets == 1) & (immediate_right == 1)  # (s sp) num_diags
+        pairs &= even_alignment  # (s sp) num_diags
+        num_pairs = pairs.sum(dim=0)  # num_diags
+        num_pairs = num_pairs.to(torch.float32)
+
+        entries[diagonals] = self.U * num_pairs  # num_diags <- num_diags
+
         return entries

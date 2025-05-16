@@ -151,17 +151,17 @@ def test_batching(simple_ham):
 @pytest.mark.parametrize(
     "str1, str2, expected",
     [
-        ("0000", "0000", "U"),
+        ("0000", "0000", 0.0),
         ("0001", "0000", 0.0),
-        ("0001", "0001", "U"),
+        ("0001", "0001", 0.0),
         ("0010", "0001", 0.0),
         ("0100", "0001", -1.0),
         ("1000", "0010", -1.0),
         ("0010", "1000", -1.0),
-        ("0010", "0010", "U"),
-        ("0011", "0011", "U"),
+        ("0010", "0010", 0.0),
+        ("0011", "0011", 2.0),
         ("0100", "0010", 0.0),
-        ("0101", "0101", "U"),
+        ("0101", "0101", 0.0),
     ],
 )
 def test_two_site_entries(simple_ham, str1, str2, expected):
@@ -187,21 +187,24 @@ def test_two_site_entries(simple_ham, str1, str2, expected):
 @pytest.mark.parametrize(
     "str1, str2, expected",
     [
-        ("000000", "000000", "U"),
+        ("000000", "000000", 0.0),
         ("000001", "000000", 0.0),
-        ("000001", "000001", "U"),
+        ("000001", "000001", 0.0),
         ("000001", "000011", 0.0),
         ("010100", "010001", -1.0),
         ("010001", "010100", -1.0),
         ("110010", "101101", 0.0),
         ("110010", "110010", 2.0),
         ("000001", "000000", 0.0),
-        ("000001", "000001", 2.0),
+        ("000001", "000001", 0.0),
         ("111110", "000111", 0.0),
         ("111110", "111011", 1.0),
         ("111011", "111110", 1.0),
         ("011100", "011001", -1.0),
         ("011110", "110110", 1.0),
+        ("001100", "001100", 2.0),
+        ("111100", "111100", 4.0),
+        ("111101", "111101", 4.0),
     ],
 )
 def test_three_site_entries(simple_ham, str1, str2, expected):
@@ -292,6 +295,27 @@ def test_hop_counting(i_c, i_a, hopped_operators, expected):
     """
     ham = HubbardHamiltonian(i_c, i_a)
     assert ham.count_hops(i_c, i_a, hopped_operators) == expected
+
+
+@pytest.mark.parametrize(
+    "str1, str2, expected",
+    [
+        ("000000", "000000", 0.0),
+        ("110000", "110000", 2.0),
+        ("111100", "111100", 4.0),
+        ("001100", "001100", 2.0),
+        ("000011", "000011", 2.0),
+    ],
+)
+def test_diagonal(str1: str, str2: str, expected: float):
+    ham = HubbardHamiltonian(t=1.0, U=2.0)
+    assert (
+        ham.entry(
+            expand_str_chain(str1),
+            expand_str_chain(str2),
+        )[0, 0]
+        == expected
+    ), f"Expected {expected} but got {ham.entry(expand_str_chain(str1), expand_str_chain(str2))[0, 0]}"
 
 
 def display_heatmap(
