@@ -272,8 +272,6 @@ class HubbardWaveFunction(nn.Module):
         ...which we know to be the gradient of the expectation of E_loc. We
         can apply the regular score function sampling because E_loc is a function
         of the samples themselves, not of model params.
-
-        for those values.
         """
 
         loss = ein.reduce(log_probs * e_loc_values, "b -> ", reduction="mean")
