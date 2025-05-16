@@ -264,15 +264,6 @@ class HubbardWaveFunction(nn.Module):
 
     def surrogate_loss(self, log_probs, e_loc_values):
         """
-        Takes samples of E_loc over a representative distribution and computes
-
-        # The big question: if these are equivalent, what difference would it make
-        # to use the surrogate loss?
-
-        # An answer: the surrogate loss ropes in the probability distribution,
-        # which is not fully involved in the computation graph if we're just
-        # taking samples.
-
         d_theta [ < E_loc(x) > ]
         = < E_loc(x) * d_theta [ log p(x; theta) ] >
         = (1 / N) sum_x ( E_loc(x) * d_theta [ log p(x; theta) ] )
