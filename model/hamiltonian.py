@@ -59,9 +59,9 @@ class HubbardHamiltonian(nn.Module):
         l_idx = ein.rearrange(l_idx, "j -> j 1")
         r_idx = ein.rearrange(r_idx, "j -> j 1")
 
-        left_mask = counter < l_idx if include_left else counter <= l_idx
-        right_mask = counter > r_idx if include_right else counter >= r_idx
-        mask = left_mask | right_mask
+        left_mask = counter >= l_idx if include_left else counter > l_idx
+        right_mask = counter <= r_idx if include_right else counter < r_idx
+        mask = left_mask & right_mask
         return mask
 
     def anticommutation_mask(self, indices, target_mask_length, inclusive=True):
