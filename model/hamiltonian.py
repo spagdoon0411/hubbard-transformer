@@ -37,6 +37,33 @@ class HubbardHamiltonian(nn.Module):
             a_sp,
         )
 
+    def two_index_anticommutation_mask(
+        self,
+        l_idx,
+        r_idx,
+        target_mask_length,
+        include_left=True,
+        include_right=True,
+    ):
+        """
+        l_idx and r_idx specify left and right bounds for the mask, respectively.
+        """
+
+        if l_idx.shape != r_idx.shape:
+            raise ValueError(
+                f"Left and right indices must have the same shape: {l_idx.shape} != {r_idx.shape}"
+            )
+
+        counter = torch.arange(0, target_mask_length)
+        counter = ein.rearrange(counter, "i -> 1 i")
+        l_idx = ein.rearrange(l_idx, "j -> j 1")
+        r_idx = ein.rearrange(r_idx, "j -> j 1")
+
+        left_mask = counter < l_idx if include_left else counter <= l_idx
+        right_mask = counter > r_idx if include_right else counter >= r_idx
+        mask = left_mask | right_mask
+        return mask
+
     def anticommutation_mask(self, indices, target_mask_length, inclusive=True):
         """
         Pushes a linear index tensor out into a mask over indices greater than or
