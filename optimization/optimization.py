@@ -7,6 +7,7 @@ import os
 import neptune
 from datetime import datetime
 from dotenv import load_dotenv
+from utils.ground_states import display_psi
 
 # Fixed for this Hubbard model
 N_PARAMS = 5
@@ -126,6 +127,7 @@ def run_optimization(
 
     return {
         "model": model,
+        "params": params,
     }
 
 
@@ -164,12 +166,23 @@ def main():
         run["parameters"] = params
 
     # Run the optimization loop, with tracking
-    run_optimization(
+    res = run_optimization(
         run=run,
         run_params=params,
         device=device,
         log_dir=weight_dir,
     )
+
+    if NEPTUNE_TRACKING:
+        assert run is not None
+
+        fig, ax = display_psi(
+            wv=res["model"],
+            num_sites=params["n_sites"],
+            params=res["params"],
+        )
+
+        run["psi"].upload(fig)
 
 
 if __name__ == "__main__":
