@@ -2,6 +2,7 @@ from torch import nn
 import torch.nn.functional as F
 import torch
 import ipdb
+from utils.logging import get_log_metric, tensor_to_string
 import einops as ein
 from typing import Optional
 from torchtyping import TensorType
@@ -276,6 +277,22 @@ class HubbardWaveFunction(nn.Module):
             a=sampled_states,
             b=basis,
         )  # b h
+
+        if met := get_log_metric(diag, "extra/avg_e_loc_summands"):
+            E_loc_abs = ein.einsum(
+                entries,
+                sampled_psi,
+                basis_psi,
+                "b h, b, h -> b h",
+            ).abs()
+
+            mean_summands = ein.reduce(
+                E_loc_abs,
+                "b h -> b",
+                reduction="mean",
+            )  # Average summand magnitude per batch entry
+
+            met.log(tensor_to_string(mean_summands))
 
         E_loc_terms = ein.einsum(
             entries,  # b h
