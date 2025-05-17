@@ -103,27 +103,33 @@ def run_optimization(
         ]
     )
 
-    for i in range(run_params["epochs"]):
-        loss, e_loc_real, e_loc_imag = optimization_step(
-            batch_size=run_params["batch_size"],
-            n_sites=run_params["n_sites"],
-            hamiltonian=ham,
-            model=model,
-            optimizer=optimizer,
-            params=params,
-        )
+    try:
+        for i in range(run_params["epochs"]):
+            loss, e_loc_real, e_loc_imag = optimization_step(
+                batch_size=run_params["batch_size"],
+                n_sites=run_params["n_sites"],
+                hamiltonian=ham,
+                model=model,
+                optimizer=optimizer,
+                params=params,
+            )
 
-        if NEPTUNE_TRACKING and run is not None:
-            run["loss/epoch/loss"].log(loss.item())
-            run["loss/epoch/e_loc_real"].log(e_loc_real.item())
-            run["loss/epoch/e_loc_imag"].log(e_loc_imag.item())
+            if NEPTUNE_TRACKING and run is not None:
+                run["loss/epoch/loss"].log(loss.item())
+                run["loss/epoch/e_loc_real"].log(e_loc_real.item())
+                run["loss/epoch/e_loc_imag"].log(e_loc_imag.item())
 
-        if i % 10 == 0:
-            print(f"Iteration {i}: E_loc = {e_loc_real.item()} Loss = {loss.item()}")
-            pth = os.path.join(log_dir, f"epoch_{i}.pt")
-            torch.save(model.state_dict(), pth)
+            if i % 10 == 0:
+                print(
+                    f"Iteration {i}: E_loc = {e_loc_real.item()} Loss = {loss.item()}"
+                )
+                pth = os.path.join(log_dir, f"epoch_{i}.pt")
+                torch.save(model.state_dict(), pth)
 
-    print("Optimization completed.")
+        print("Optimization completed.")
+
+    except KeyboardInterrupt:
+        print("Optimization interrupted.")
 
     return {
         "model": model,
@@ -140,7 +146,7 @@ def main():
     weight_dir = f"weights/{timestamp}"
 
     params = {
-        "learning_rate": 1e-1,
+        "learning_rate": 1e-3,
         "batch_size": 64,
         "n_sites": 4,
         "embed_dim": 32,
@@ -183,6 +189,8 @@ def main():
         )
 
         run["psi"].upload(fig)
+
+        run.stop()
 
 
 if __name__ == "__main__":
