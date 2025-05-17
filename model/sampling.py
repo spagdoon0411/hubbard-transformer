@@ -186,9 +186,8 @@ class Sampling:
     ):
         """
         Returns the most probable extension of the passed chain of tokens.
-        The caller should be sure to drop the previous tokens reference to prevent
-        a memory leak.
         """
+
         n_params = params.shape[0]
         n_tokens = tokens.shape[0]
         seq = n_params + n_tokens
