@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import torch
 import ipdb
 import einops as ein
+from typing import Optional
 from torchtyping import TensorType
 from model.site_degree_embedding import SiteDegreeEmbedding
 import itertools as it
@@ -225,6 +226,7 @@ class HubbardWaveFunction(nn.Module):
         hamiltonian: HubbardHamiltonian,
         params: TensorType["n_params"],
         sampled_states: TensorType["seq", "batch", "occupation", "spin"],
+        diag: Optional[dict],
     ):
         """
         Computes the expectation value of E_loc using the wave function that this

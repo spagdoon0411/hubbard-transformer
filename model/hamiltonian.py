@@ -7,7 +7,7 @@ from scipy.sparse.linalg import eigsh
 
 
 class HubbardHamiltonian(nn.Module):
-    def __init__(self, t: float, U: float, **kwargs):
+    def __init__(self, t: float, U: float):
         super(HubbardHamiltonian, self)
         self.t = t
         self.U = U

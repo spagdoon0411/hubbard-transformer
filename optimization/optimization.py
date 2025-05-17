@@ -25,6 +25,7 @@ def optimization_step(
     params: torch.Tensor,
     batch_size: int,
     n_sites: int,
+    diag: dict,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     One pass of backprop--so one round of batched autoregressive chain-building,
@@ -46,6 +47,7 @@ def optimization_step(
         hamiltonian=hamiltonian,
         params=params,  # type: ignore
         sampled_states=samples,  # type: ignore
+        diag=diag,
     )
 
     e_loc_real, e_loc_imag = e_loc.real, e_loc.imag
@@ -63,7 +65,10 @@ def optimization_step(
 
 
 def run_optimization(
-    run_params: dict, device: torch.device, log_dir: str, run: Optional[Any]
+    run_params: dict,
+    device: torch.device,
+    log_dir: str,
+    diag: dict,
 ) -> dict:
     """
     A round of optimization as a function of run parameters.
@@ -83,7 +88,7 @@ def run_optimization(
         max_len=run_params["max_len"],
     )
 
-    if NEPTUNE_TRACKING and run is not None:
+    if run := diag.get("run"):
         run["model/architecture"] = str(model)
 
     model.to(device)
@@ -112,9 +117,10 @@ def run_optimization(
                 model=model,
                 optimizer=optimizer,
                 params=params,
+                diag=diag,
             )
 
-            if NEPTUNE_TRACKING and run is not None:
+            if run := diag.get("run"):
                 run["loss/epoch/loss"].log(loss.item())
                 run["loss/epoch/e_loc_real"].log(e_loc_real.item())
                 run["loss/epoch/e_loc_imag"].log(e_loc_imag.item())
@@ -173,15 +179,16 @@ def main():
 
     # Run the optimization loop, with tracking
     res = run_optimization(
-        run=run,
         run_params=params,
         device=device,
         log_dir=weight_dir,
+        diag={
+            "run": run,
+            "logging_metrics": ["extra/avg_e_loc_summands"],
+        },
     )
 
-    if NEPTUNE_TRACKING:
-        assert run is not None
-
+    if run:
         fig, ax = display_psi(
             wv=res["model"],
             num_sites=params["n_sites"],
