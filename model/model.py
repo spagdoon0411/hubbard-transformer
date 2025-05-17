@@ -1,6 +1,7 @@
 from torch import nn
 import torch.nn.functional as F
 import torch
+import ipdb
 import einops as ein
 from torchtyping import TensorType
 from model.site_degree_embedding import SiteDegreeEmbedding
@@ -168,7 +169,11 @@ class HubbardWaveFunction(nn.Module):
 
         return flat_states  # s h o sp == s nCk o sp
 
-    def compute_basis_information(self, num_sites: int, params: torch.Tensor):
+    def compute_basis_information(
+        self,
+        num_sites: int,
+        params: torch.Tensor,
+    ):
         """
         Produces a complete basis tensor for the number of sites given, assuming
         two possible occupations and two possible spin states.
@@ -201,10 +206,17 @@ class HubbardWaveFunction(nn.Module):
             params=params,  # type: ignore
         )
 
+        # TODO: this outputs something way too small?
         psi = self.deembedding.compute_psi(
             probs=probs,  # s b sp
             phases=phases,  # s b sp
         )
+
+        psi = ein.reduce(
+            psi,
+            "s b sp -> b",
+            reduction="prod",
+        )  # b
 
         return psi, basis
 
@@ -230,7 +242,7 @@ class HubbardWaveFunction(nn.Module):
         basis_psi, basis = self.compute_basis_information(
             num_sites=s,
             params=params,  # n_params
-        )  # (s b sp, s h o sp)
+        )  # (b, s h o sp)
 
         params = ein.repeat(
             params,
@@ -246,19 +258,29 @@ class HubbardWaveFunction(nn.Module):
         sampled_psi = self.deembedding.compute_psi(
             probs=probs,  # s b sp
             phases=phases,  # s b sp
-        )  # (s b sp)
+        )  # b
 
+        # NOTE: we should have one psi-value per basis entry
+
+        sampled_psi = ein.reduce(
+            sampled_psi,
+            "s b sp -> b",
+            reduction="prod",
+        )  # b
+
+        # Invididual entries of < a | H | b > where the sampled states (axis b)
+        # are the bras and the basis states (axis h) are the kets
         entries = hamiltonian.entry(
             a=sampled_states,
             b=basis,
-        )
+        )  # b h
 
         E_loc_terms = ein.einsum(
-            entries,
-            sampled_psi,
-            basis_psi,
-            "b h, s b sp, s h sp -> b",
-        )
+            entries,  # b h
+            sampled_psi,  # b
+            basis_psi,  # h
+            "b h, b, h -> b",
+        )  # b
 
         return E_loc_terms
 
