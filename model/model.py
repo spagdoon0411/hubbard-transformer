@@ -1,7 +1,9 @@
 from torch import nn
 import torch.nn.functional as F
 import torch
+import os
 import ipdb
+from datetime import datetime
 from utils.logging import get_log_metric, tensor_to_string
 import einops as ein
 from typing import Optional
@@ -15,6 +17,9 @@ from model.position_encoding import PositionEncoding
 from model.hubbard_deembedding import HubbardDeembedding
 from model.sampling import Sampling
 from model.hamiltonian import HubbardHamiltonian
+import pickle
+
+DUMP_SAMPLES = False
 
 
 class HubbardWaveFunction(nn.Module):
@@ -114,6 +119,18 @@ class HubbardWaveFunction(nn.Module):
             up_to=chain_length,
             compute_log_prob=True,
         )
+
+        if DUMP_SAMPLES:
+            stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            dir = os.path.join("diag", "samples", stamp)
+            if not os.path.exists(dir):
+                os.makedirs(dir)
+
+            with open(os.path.join(dir, "samples.pkl"), "wb") as f:
+                pickle.dump(chains, f)
+
+            with open(os.path.join(dir, "log_probs.pkl"), "wb") as f:
+                pickle.dump(log_probs, f)
 
         if compute_log_prob:
             return chains, log_probs
