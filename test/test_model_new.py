@@ -1,5 +1,7 @@
 import pytest
 import torch
+import einops as ein
+import math
 from model.hamiltonian import HubbardHamiltonian
 from model.model import HubbardWaveFunction
 from utils.dummy_data import create_occupations, create_uniform_params, create_params
@@ -66,3 +68,41 @@ def test_partial_psi(sample_partial):
 
     assert torch.all(phase >= -torch.pi)
     assert torch.all(phase <= torch.pi)
+
+
+def test_basis_generation(model_hamiltonian):
+    h_model = model_hamiltonian["h_model"]
+
+    num_sites = 4  # So 8 entries in the binary representation
+    particle_num = 4
+    params = create_params(n_params=5)
+
+    psi, basis = h_model.compute_basis_information(
+        num_sites=num_sites,
+        params=params,
+    )
+
+    canonical_bin = ein.rearrange(
+        basis,
+        "s b o sp -> (s sp) b o",
+    ).argmax(dim=-1)
+
+    particle_counts = ein.einsum(canonical_bin, "s b -> b")
+
+    # Each chain has the right number of particles
+    assert torch.all(
+        particle_counts == h_model.particle_number
+    ), "Particle counts don't match counts of model"
+
+    # We have the right number of chains
+    batch = basis.shape[1]
+    assert batch == math.comb(
+        num_sites * 2, particle_num
+    ), f"Batch size should be equal to number of ways to choose {num_sites} from {num_sites * 2}"
+
+    # All of the chains are unique
+    for i in range(batch):
+        for j in range(i + 1, batch):
+            assert not torch.all(
+                basis[:, i] == basis[:, j]
+            ), "Basis states were not unique"
