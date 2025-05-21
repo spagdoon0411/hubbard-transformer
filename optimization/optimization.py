@@ -172,7 +172,7 @@ def main():
     weight_dir = f"weights/{timestamp}"
 
     params = {
-        "learning_rate": 1e-3,
+        "learning_rate": 1e-2,
         "batch_size": 64,
         "n_sites": 4,
         "embed_dim": 32,
