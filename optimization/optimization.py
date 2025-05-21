@@ -40,6 +40,7 @@ def optimization_step(
         chain_length=n_sites,
         params=params,  # type: ignore
         compute_log_prob=True,
+        diag=diag,
     )
 
     # Estimate < E_loc > based on samples
@@ -120,6 +121,8 @@ def run_optimization(
                 diag=diag,
             )
 
+            log_grads(model, diag.get("run"))
+
             if run := diag.get("run"):
                 run["loss/epoch/loss"].log(loss.item())
                 run["loss/epoch/e_loc_real"].log(e_loc_real.item())
@@ -141,6 +144,23 @@ def run_optimization(
         "model": model,
         "params": params,
     }
+
+
+def log_grads(
+    model: HubbardWaveFunction,
+    run: Optional[neptune.Run],
+) -> None:
+    """
+    Log gradients of the model parameters to Neptune.
+    """
+    if run is None:
+        return
+
+    for name, param in model.named_parameters():
+        if param.grad is not None:
+            run[f"gradients/mean_abs/{name}"].log(param.grad.abs().mean())
+        else:
+            run[f"gradients/mean_abs/{name}"].log(0)
 
 
 def main():
@@ -177,6 +197,8 @@ def main():
         )
         run["parameters"] = params
 
+    stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
     # Run the optimization loop, with tracking
     res = run_optimization(
         run_params=params,
@@ -185,6 +207,8 @@ def main():
         diag={
             "run": run,
             "logging_metrics": ["extra/avg_e_loc_summands"],
+            "dump_probs": os.path.join("diag", stamp),
+            "dump_samples": os.path.join("diag", stamp),
         },
     )
 

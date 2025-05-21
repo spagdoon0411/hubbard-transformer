@@ -97,6 +97,7 @@ class HubbardWaveFunction(nn.Module):
         chain_length: int,
         params: TensorType["n_params"],
         compute_log_prob: bool = False,
+        diag: dict = {},
     ):
         """
         Produces num_chains most-probable token chains of length chain_length based
@@ -118,19 +119,20 @@ class HubbardWaveFunction(nn.Module):
             tokens=tokens,  # type: ignore
             up_to=chain_length,
             compute_log_prob=True,
+            diag=diag,
         )
 
-        if DUMP_SAMPLES:
-            stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            dir = os.path.join("diag", "samples", stamp)
+        if (dir := diag.get("dump_samples", None)) is not None:
             if not os.path.exists(dir):
-                os.makedirs(dir)
+                os.makedirs(dir, exist_ok=True)
 
-            with open(os.path.join(dir, "samples.pkl"), "wb") as f:
+            with open(os.path.join(dir, "chains.pkl"), "wb") as f:
                 pickle.dump(chains, f)
 
             with open(os.path.join(dir, "log_probs.pkl"), "wb") as f:
                 pickle.dump(log_probs, f)
+
+            diag["dump_samples"] = None
 
         if compute_log_prob:
             return chains, log_probs
@@ -244,7 +246,7 @@ class HubbardWaveFunction(nn.Module):
         hamiltonian: HubbardHamiltonian,
         params: TensorType["n_params"],
         sampled_states: TensorType["seq", "batch", "occupation", "spin"],
-        diag: Optional[dict],
+        diag: dict = {},
     ):
         """
         Computes the expectation value of E_loc using the wave function that this
