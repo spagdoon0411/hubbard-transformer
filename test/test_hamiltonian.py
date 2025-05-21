@@ -4,7 +4,7 @@ from itertools import product
 import torch
 import logging
 import einops as ein
-import matplotlib.pyplot as plt
+from utils.logging import display_heatmap
 import functools as ft
 import torch.nn.functional as F
 
@@ -316,53 +316,3 @@ def test_diagonal(str1: str, str2: str, expected: float):
         )[0, 0]
         == expected
     ), f"Expected {expected} but got {ham.entry(expand_str_chain(str1), expand_str_chain(str2))[0, 0]}"
-
-
-def display_heatmap(
-    matrix: torch.Tensor,
-    y_labels: list[str],
-    x_labels: list[str],
-    title: str = "Heatmap",
-    y_name: str = "Rows",
-    x_name: str = "Columns",
-):
-    """
-    Displays a PyTorch matrix as a heatmap grid with custom row and column labels.
-
-    Args:
-        matrix (torch.Tensor): The PyTorch matrix to display.
-        row_labels (list[str]): Labels for the rows.
-        col_labels (list[str]): Labels for the columns.
-        title (str): Title of the heatmap.
-    """
-    if not isinstance(matrix, torch.Tensor):
-        raise ValueError("Input must be a PyTorch tensor.")
-
-    if len(y_labels) != matrix.shape[0]:
-        raise ValueError(
-            "Number of row labels must match the number of rows in the matrix."
-        )
-    if len(x_labels) != matrix.shape[1]:
-        raise ValueError(
-            "Number of column labels must match the number of columns in the matrix."
-        )
-
-    # Convert the PyTorch tensor to a NumPy array for plotting
-    matrix_np = matrix.numpy()
-
-    # Plot the heatmap
-    plt.figure(figsize=(12, 12))
-    plt.imshow(matrix_np, cmap="coolwarm", interpolation="nearest")
-    plt.colorbar(label="Value")
-    plt.title(title)
-
-    # Label rows and columns with custom labels
-    plt.xticks(
-        ticks=range(matrix_np.shape[1]), labels=x_labels, rotation=45, ha="right"
-    )
-    plt.yticks(ticks=range(matrix_np.shape[0]), labels=y_labels)
-
-    plt.xlabel(x_name)
-    plt.ylabel(y_name)
-    plt.tight_layout()  # Adjust layout to prevent label overlap
-    plt.show()
