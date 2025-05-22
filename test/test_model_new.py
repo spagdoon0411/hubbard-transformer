@@ -1,7 +1,10 @@
 import pytest
 import torch
+import numpy as np
+import ipdb
 import einops as ein
 import math
+from utils.exact_diagonalization import exact_diagonalize
 from model.hamiltonian import HubbardHamiltonian
 from model.model import HubbardWaveFunction
 from utils.dummy_data import create_occupations, create_uniform_params, create_params
@@ -106,3 +109,50 @@ def test_basis_generation(model_hamiltonian):
             assert not torch.all(
                 basis[:, i] == basis[:, j]
             ), "Basis states were not unique"
+
+
+def test_reliable_e_loc(model_hamiltonian):
+    """
+    Does calculating < E_loc > using the tensor approach align with exact
+    diagonalization?
+    """
+
+    h_model: HubbardWaveFunction = model_hamiltonian["h_model"]
+    ham: HubbardHamiltonian = model_hamiltonian["ham"]
+
+    _, basis = h_model.compute_basis_information(
+        num_sites=4,
+        params=torch.rand(5),
+    )
+
+    vals, vects, entries = exact_diagonalize(
+        ham=ham,
+        basis=basis,  # s b o sp
+    )
+
+    psi_ground = torch.tensor(vects[:, 0], dtype=torch.complex64)
+
+    probs = psi_ground * psi_ground.conj()
+    assert torch.isclose(
+        probs.sum(), torch.tensor(1.0, dtype=torch.complex64)
+    ), "Probabilities from exact diag were not normalized to 1"
+
+    e_loc_values = h_model._compute_e_loc(
+        h_entries=entries,
+        sample_psi=psi_ground,  # the proper ground-state psi-values
+        basis_psi=psi_ground,
+    )
+
+    expect_tensor_calc = torch.einsum(
+        "b, b -> ",
+        e_loc_values,
+        probs,  # TODO: was this normalized?
+    )
+
+    from_tensor = expect_tensor_calc
+    from_diag = torch.tensor(vals[0], dtype=torch.complex64)
+
+    assert torch.isclose(
+        from_tensor,
+        from_diag,
+    ), f"e_loc values don't match exact diag. Calculated: {from_tensor}, from exact diag: {from_diag}. "
