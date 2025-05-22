@@ -49,7 +49,7 @@ def stringify_bin_tens(bin_tensor: torch.Tensor):
 
 
 def chains_to_strings(samples: torch.Tensor):
-    flattened = ein.rearrange(samples, "s b sp o -> (s sp) b o")
+    flattened = ein.rearrange(samples, "s b o sp -> (s sp) b o")
     idx = flattened.argmax(dim=-1)  # s b
 
     strings = []
