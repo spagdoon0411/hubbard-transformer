@@ -319,9 +319,7 @@ class HubbardWaveFunction(nn.Module):
         sampled_psi = self.deembedding.compute_psi(
             probs=probs,  # s b sp
             phases=phases,  # s b sp
-        )  # b
-
-        # NOTE: we should have one psi-value per basis entry
+        )  # s b sp
 
         sampled_psi = ein.reduce(
             sampled_psi,
