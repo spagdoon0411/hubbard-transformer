@@ -56,7 +56,9 @@ class HubbardWaveFunction(nn.Module):
             wavelen_fact=wavelen_fact,
         )
 
-        self.encoder_layer = nn.TransformerEncoderLayer(
+        # Making this an attr of self will cause zero grads to be logged. This object is not
+        # involved in computation graphs; copies of it (made by TransformerEncoder) are.
+        encoder_layer = nn.TransformerEncoderLayer(
             d_model=embed_dim,
             nhead=n_heads,
             dim_feedforward=dim_feedforward,
@@ -65,7 +67,7 @@ class HubbardWaveFunction(nn.Module):
         )
 
         self.transformer_encoder = nn.TransformerEncoder(
-            self.encoder_layer,
+            encoder_layer,
             num_layers=n_layers,
             mask_check=True,
         )
