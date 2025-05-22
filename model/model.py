@@ -241,6 +241,45 @@ class HubbardWaveFunction(nn.Module):
 
         return psi, basis
 
+    def _compute_e_loc(
+        self,
+        h_entries: torch.Tensor,
+        sample_psi: torch.Tensor,  # < a | psi >
+        basis_psi: torch.Tensor,  # < b | psi >
+        diag: dict = {},
+    ):
+
+        sample_psi = torch.where(
+            sample_psi.abs() < 1e-4,
+            sample_psi + 1e-4,
+            sample_psi,
+        )
+
+        E_loc_values = ein.einsum(
+            h_entries,
+            sample_psi**-1,
+            basis_psi,
+            "b h, b, h -> b",  # TODO: does this scale by the b-values?
+        )  # The bra-psi are the sampled states
+
+        if met := get_log_metric(diag, "extra/avg_e_loc_summands"):
+            E_loc_abs = ein.einsum(
+                h_entries,
+                sample_psi**-1,
+                basis_psi,
+                "b h, b, h -> b h",
+            ).abs()
+
+            mean_summands = ein.reduce(
+                E_loc_abs,
+                "b h -> b",
+                reduction="mean",
+            )
+
+            met.log(tensor_to_string(mean_summands))
+
+        return E_loc_values  # b
+
     def e_loc(
         self,
         hamiltonian: HubbardHamiltonian,
@@ -297,30 +336,14 @@ class HubbardWaveFunction(nn.Module):
             b=basis,
         )  # b h
 
-        if met := get_log_metric(diag, "extra/avg_e_loc_summands"):
-            E_loc_abs = ein.einsum(
-                entries,
-                sampled_psi,
-                basis_psi,
-                "b h, b, h -> b h",
-            ).abs()
+        E_loc_values = self._compute_e_loc(
+            h_entries=entries,
+            sample_psi=sampled_psi,
+            basis_psi=basis_psi,
+            diag=diag,
+        )
 
-            mean_summands = ein.reduce(
-                E_loc_abs,
-                "b h -> b",
-                reduction="mean",
-            )  # Average summand magnitude per batch entry
-
-            met.log(tensor_to_string(mean_summands))
-
-        E_loc_terms = ein.einsum(
-            entries,  # b h
-            sampled_psi,  # b
-            basis_psi,  # h
-            "b h, b, h -> b",
-        )  # b
-
-        return E_loc_terms
+        return E_loc_values
 
     def surrogate_loss(self, log_probs, e_loc_values):
         """
