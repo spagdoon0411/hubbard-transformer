@@ -66,10 +66,19 @@ class HubbardWaveFunction(nn.Module):
             activation=activation,
         )
 
+        self.logit_norm = nn.LayerNorm(
+            embed_dim,
+        )
+
         self.transformer_encoder = nn.TransformerEncoder(
             encoder_layer,
             num_layers=n_layers,
             mask_check=True,
+            norm=self.logit_norm,
+        )
+
+        self.post_transform_norm = nn.LayerNorm(
+            embed_dim,
         )
 
         self.deembedding = HubbardDeembedding(
@@ -391,6 +400,9 @@ class HubbardWaveFunction(nn.Module):
 
         logits = self.embedding(params, tokens)  # s b e
         logits = self.transformer_encoder(logits)  # s b e
+
+        logits = self.post_transform_norm(logits)  # s b e
+
         prob, phase = self.deembedding(
             logits[n_params:], calculate_phase=True
         )  # s b o sp
