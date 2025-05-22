@@ -38,7 +38,7 @@ class HubbardDeembedding(nn.Module):
 
         # TODO: use log probs for efficiency
 
-        psi = probs * torch.exp(1j * phases)  # s b sp
+        psi = probs.sqrt() * torch.exp(1j * phases)  # s b sp
         return psi
 
     def forward(
