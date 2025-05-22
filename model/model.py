@@ -227,7 +227,6 @@ class HubbardWaveFunction(nn.Module):
             params=params,  # type: ignore
         )
 
-        # TODO: this outputs something way too small?
         psi = self.deembedding.compute_psi(
             probs=probs,  # s b sp
             phases=phases,  # s b sp
