@@ -80,7 +80,7 @@ def test_basis_generation(model_hamiltonian):
     particle_num = 4
     params = create_params(n_params=5)
 
-    psi, basis = h_model.compute_basis_information(
+    _, basis, _ = h_model.compute_basis_information(
         num_sites=num_sites,
         params=params,
     )
@@ -120,7 +120,7 @@ def test_reliable_e_loc(model_hamiltonian):
     h_model: HubbardWaveFunction = model_hamiltonian["h_model"]
     ham: HubbardHamiltonian = model_hamiltonian["ham"]
 
-    _, basis = h_model.compute_basis_information(
+    _, basis, _ = h_model.compute_basis_information(
         num_sites=4,
         params=torch.rand(5),
     )

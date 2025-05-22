@@ -240,7 +240,19 @@ class HubbardWaveFunction(nn.Module):
             reduction="prod",
         )  # b
 
-        return psi, basis
+        norm = ein.reduce(
+            ein.reduce(
+                probs,
+                "s b sp -> b",
+                reduction="prod",
+            ),
+            "b -> ",
+            reduction="sum",
+        )
+
+        psi = psi / norm.sqrt()  # b
+
+        return psi, basis, norm
 
     def _compute_e_loc(
         self,
@@ -301,7 +313,7 @@ class HubbardWaveFunction(nn.Module):
 
         s, b, _, _ = sampled_states.shape
 
-        basis_psi, basis = self.compute_basis_information(
+        basis_psi, basis, norm = self.compute_basis_information(
             num_sites=s,
             params=params,  # n_params
         )  # (b, s h o sp)
@@ -327,6 +339,8 @@ class HubbardWaveFunction(nn.Module):
             "s b sp -> b",
             reduction="prod",
         )  # b
+
+        sampled_psi = sampled_psi / norm.sqrt()  # b
 
         # Invididual entries of < a | H | b > where the sampled states (axis b)
         # are the bras and the basis states (axis h) are the kets

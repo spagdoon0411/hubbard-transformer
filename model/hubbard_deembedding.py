@@ -34,6 +34,8 @@ class HubbardDeembedding(nn.Module):
 
         Defines an interpretation for what the model forward pass outputs (e.g., probs,
         root-probs, log probs, etc.).
+
+        Non-normalized.
         """
 
         # TODO: use log probs for efficiency

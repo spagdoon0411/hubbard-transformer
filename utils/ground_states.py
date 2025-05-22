@@ -18,7 +18,7 @@ def display_psi(
 
     sns.set_theme(style="whitegrid")
 
-    psi, basis = wv.compute_basis_information(
+    psi, basis, norm = wv.compute_basis_information(
         num_sites=num_sites,
         params=params,
     )
