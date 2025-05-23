@@ -167,64 +167,70 @@ def log_grads(
 
 
 def main():
-    # Create weight logging folders
-    if not os.path.exists("weights"):
-        os.makedirs("weights")
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    os.makedirs(f"weights/{timestamp}", exist_ok=False)
-    weight_dir = f"weights/{timestamp}"
 
-    params = {
-        "learning_rate": 1e-3,
-        "batch_size": 64,
-        "n_sites": 4,
-        "embed_dim": 32,
-        "n_heads": 1,
-        "n_layers": 1,
-        "dim_feedforward": 64,
-        "particle_number": 4,
-        "max_len": 100,
-        "t": 1.0,
-        "U": 2.0,
-        "epochs": 1000,
-        "device": str(device),
-    }
+    N_TIMES = 100
 
-    # Set up Neptune tracking
-    run = None
-    if NEPTUNE_TRACKING:
-        run = neptune.init_run(
-            project="spagdoon0411/hubbard-model",
-            api_token=os.environ["NEPTUNE_API_TOKEN"],
-            tags=["importance/recents"],
+    for i in range(N_TIMES):
+
+        # Create weight logging folders
+        if not os.path.exists("weights"):
+            os.makedirs("weights")
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        os.makedirs(f"weights/{timestamp}", exist_ok=False)
+        weight_dir = f"weights/{timestamp}"
+
+        params = {
+            "learning_rate": 1e-3,
+            "batch_size": 64,
+            "n_sites": 4,
+            "embed_dim": 32,
+            "n_heads": 1,
+            "n_layers": 1,
+            "dim_feedforward": 64,
+            "particle_number": 4,
+            "max_len": 100,
+            "t": 1.0,
+            "U": 2.0,
+            "epochs": 1000,
+            "device": str(device),
+        }
+
+        # Set up Neptune tracking
+        run = None
+        if NEPTUNE_TRACKING:
+            run = neptune.init_run(
+                project="spagdoon0411/hubbard-model",
+                api_token=os.environ["NEPTUNE_API_TOKEN"],
+                tags=["importance/recents"],
+                name=f"grad-explosion-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}",  # Custom run name
+            )
+            run["parameters"] = params
+
+        stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        # Run the optimization loop, with tracking
+        res = run_optimization(
+            run_params=params,
+            device=device,
+            log_dir=weight_dir,
+            diag={
+                "run": run,
+                "logging_metrics": ["extra/avg_e_loc_summands"],
+                "dump_probs": os.path.join("diag", stamp),
+                "dump_samples": os.path.join("diag", stamp),
+            },
         )
-        run["parameters"] = params
 
-    stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        if run:
+            fig, ax = display_psi(
+                wv=res["model"],
+                num_sites=params["n_sites"],
+                params=res["params"],
+            )
 
-    # Run the optimization loop, with tracking
-    res = run_optimization(
-        run_params=params,
-        device=device,
-        log_dir=weight_dir,
-        diag={
-            "run": run,
-            "logging_metrics": ["extra/avg_e_loc_summands"],
-            "dump_probs": os.path.join("diag", stamp),
-            "dump_samples": os.path.join("diag", stamp),
-        },
-    )
+            run["psi"].upload(fig)
 
-    if run:
-        fig, ax = display_psi(
-            wv=res["model"],
-            num_sites=params["n_sites"],
-            params=res["params"],
-        )
-
-        run["psi"].upload(fig)
-
-        run.stop()
+            run.stop()
 
 
 if __name__ == "__main__":
