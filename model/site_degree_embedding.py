@@ -18,8 +18,12 @@ class SiteDegreeEmbedding(nn.Module):
         position_encoding: type[PositionEncoding],
         max_len: int = 200,
         wavelen_fact: float = 1e6,
+        diag: dict = {},
     ):
         super(SiteDegreeEmbedding, self).__init__()
+
+        self.diag = diag
+
         self.n_params = n_params
         self.embed_dim = embed_dim
         self.input_token_dims = input_token_dims

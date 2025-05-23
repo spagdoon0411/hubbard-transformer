@@ -25,6 +25,7 @@ class Sampling:
         deembedding_function: HubbardDeembedding,
         transformer_encoder: TransformerEncoder,
         mask: torch.Tensor,
+        diag: dict = {},
     ):
         """
         Assumes embedding_function takes the sequence of tokens and produces
@@ -42,13 +43,13 @@ class Sampling:
         self.deembedding_function = deembedding_function
         self.transformer_encoder = transformer_encoder
         self.mask = mask
+        self.diag = diag
 
     def _generate_samples(
         self,
         prob_dist: TensorType["batch", "..."] | torch.Tensor,
         branching_fact: int,
         compute_log_prob: bool = False,
-        diag: dict = {},
     ):
         if branching_fact < 1:
             raise ValueError("Branching factor must be at least 1")
@@ -63,14 +64,14 @@ class Sampling:
             "b o sp -> b sp o",
         )
 
-        if (dir := diag.get("dump_probs")) is not None:
+        if (dir := self.diag.get("dump_probs")) is not None:
             if not os.path.exists(dir):
                 os.makedirs(dir, exist_ok=True)
 
             with open(os.path.join(dir, "probs.pkl"), "wb") as f:
                 pickle.dump(prob_dist, f)
 
-            diag["dump_probs"] = None
+            self.diag["dump_probs"] = None
 
         # Assuming the token dimensions are tailing the other
         # axes
@@ -195,7 +196,6 @@ class Sampling:
         tokens: TensorType["n_tokens", "batch", "..."],
         up_to: int,
         compute_log_prob: bool = False,
-        diag: dict = {},
     ):
         """
         Returns the most probable extension of the passed chain of tokens.
@@ -251,7 +251,7 @@ class Sampling:
             )  # b sp o, softmax over the last dimension
 
             next, log_probs = self._generate_samples(
-                prob_dist, 1, compute_log_prob=True, diag=diag
+                prob_dist, 1, compute_log_prob=True
             )  # b o sp, b sp
 
             # Log probs for the whole chain: sum of log probs for the sites

@@ -41,7 +41,6 @@ def optimization_step(
         chain_length=n_sites,
         params=params,  # type: ignore
         compute_log_prob=True,
-        diag=diag,
     )
 
     # Estimate < E_loc > based on samples
@@ -49,7 +48,6 @@ def optimization_step(
         hamiltonian=hamiltonian,
         params=params,  # type: ignore
         sampled_states=samples,  # type: ignore
-        diag=diag,
     )
 
     e_loc_real, e_loc_imag = e_loc.real, e_loc.imag
@@ -88,6 +86,7 @@ def run_optimization(
         dim_feedforward=run_params["dim_feedforward"],
         particle_number=run_params["particle_number"],
         max_len=run_params["max_len"],
+        diag=diag,
     )
 
     initialize_weights(model)

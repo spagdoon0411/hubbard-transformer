@@ -32,8 +32,11 @@ class HubbardWaveFunction(nn.Module):
         wavelen_fact: float = 1e6,
         activation: str = "relu",
         dropout: float = 0.1,
+        diag: dict = {},
     ):
         super(HubbardWaveFunction, self).__init__()
+
+        self.diag = diag
 
         n_params = 5  # t, U, mu, chain length, particle number
         token_dims = [2, 2]
@@ -106,7 +109,6 @@ class HubbardWaveFunction(nn.Module):
         chain_length: int,
         params: TensorType["n_params"],
         compute_log_prob: bool = False,
-        diag: dict = {},
     ):
         """
         Produces num_chains most-probable token chains of length chain_length based
@@ -128,10 +130,9 @@ class HubbardWaveFunction(nn.Module):
             tokens=tokens,  # type: ignore
             up_to=chain_length,
             compute_log_prob=True,
-            diag=diag,
         )
 
-        if (dir := diag.get("dump_samples", None)) is not None:
+        if (dir := self.diag.get("dump_samples", None)) is not None:
             if not os.path.exists(dir):
                 os.makedirs(dir, exist_ok=True)
 
@@ -141,7 +142,7 @@ class HubbardWaveFunction(nn.Module):
             with open(os.path.join(dir, "log_probs.pkl"), "wb") as f:
                 pickle.dump(log_probs, f)
 
-            diag["dump_samples"] = None
+            self.diag["dump_samples"] = None
 
         if compute_log_prob:
             return chains, log_probs
@@ -266,7 +267,6 @@ class HubbardWaveFunction(nn.Module):
         h_entries: torch.Tensor,
         sample_psi: torch.Tensor,  # < a | psi >
         basis_psi: torch.Tensor,  # < b | psi >
-        diag: dict = {},
     ):
 
         sample_psi = torch.where(
@@ -282,7 +282,7 @@ class HubbardWaveFunction(nn.Module):
             "b h, b, h -> b",  # TODO: does this scale by the b-values?
         )  # The bra-psi are the sampled states
 
-        if met := get_log_metric(diag, "extra/avg_e_loc_summands"):
+        if met := get_log_metric(self.diag, "extra/avg_e_loc_summands"):
             E_loc_abs = ein.einsum(
                 h_entries,
                 sample_psi**-1,
@@ -305,7 +305,6 @@ class HubbardWaveFunction(nn.Module):
         hamiltonian: HubbardHamiltonian,
         params: TensorType["n_params"],
         sampled_states: TensorType["seq", "batch", "occupation", "spin"],
-        diag: dict = {},
     ):
         """
         Computes the expectation value of E_loc using the wave function that this
@@ -360,7 +359,6 @@ class HubbardWaveFunction(nn.Module):
             h_entries=entries,
             sample_psi=sampled_psi,
             basis_psi=basis_psi,
-            diag=diag,
         )
 
         return E_loc_values
