@@ -195,6 +195,8 @@ def main():
             "device": str(device),
         }
 
+        print(f"Running optimization with device: {device}")
+
         # Set up Neptune tracking
         run = None
         if NEPTUNE_TRACKING:
