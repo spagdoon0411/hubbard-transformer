@@ -1,6 +1,7 @@
 from model.model import HubbardWaveFunction
 from model.hamiltonian import HubbardHamiltonian
 from model.weight_init import initialize_weights
+from utils.hooks import register_hooks_for_all_modules
 import torch
 from typing import Any, Optional
 import pdb
@@ -89,6 +90,7 @@ def run_optimization(
         diag=diag,
     )
 
+    register_hooks_for_all_modules(model, diag.get("run", None))
     initialize_weights(model)
 
     if run := diag.get("run"):
