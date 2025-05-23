@@ -130,29 +130,29 @@ def test_reliable_e_loc(model_hamiltonian):
         basis=basis,  # s b o sp
     )
 
-    psi_ground = torch.tensor(vects[:, 0], dtype=torch.complex64)
+    for i in range(len(vals)):
+        psi_from_diag = torch.tensor(vects[:, i], dtype=torch.complex64)
+        probs = psi_from_diag * psi_from_diag.conj()
+        assert torch.isclose(
+            probs.sum(), torch.tensor(1.0, dtype=torch.complex64)
+        ), "Probabilities from exact diag were not normalized to 1"
 
-    probs = psi_ground * psi_ground.conj()
-    assert torch.isclose(
-        probs.sum(), torch.tensor(1.0, dtype=torch.complex64)
-    ), "Probabilities from exact diag were not normalized to 1"
+        e_loc_values = h_model._compute_e_loc(
+            h_entries=entries,
+            sample_psi=psi_from_diag,  # the proper ground-state psi-values
+            basis_psi=psi_from_diag,
+        )
 
-    e_loc_values = h_model._compute_e_loc(
-        h_entries=entries,
-        sample_psi=psi_ground,  # the proper ground-state psi-values
-        basis_psi=psi_ground,
-    )
+        expect_tensor_calc = torch.einsum(
+            "b, b -> ",
+            e_loc_values,
+            probs,
+        )
 
-    expect_tensor_calc = torch.einsum(
-        "b, b -> ",
-        e_loc_values,
-        probs,
-    )
+        from_tensor = expect_tensor_calc
+        from_diag = torch.tensor(vals[i], dtype=torch.complex64)
 
-    from_tensor = expect_tensor_calc
-    from_diag = torch.tensor(vals[0], dtype=torch.complex64)
-
-    assert torch.isclose(
-        from_tensor,
-        from_diag,
-    ), f"e_loc values don't match exact diag. Calculated: {from_tensor}, from exact diag: {from_diag}. "
+        assert torch.isclose(
+            from_tensor,
+            from_diag,
+        ), f"e_loc values don't match exact diag. Calculated: {from_tensor}, from exact diag: {from_diag}."
