@@ -13,7 +13,7 @@ from utils.ground_states import display_psi
 # Fixed for this Hubbard model
 N_PARAMS = 5
 
-NEPTUNE_TRACKING = True
+NEPTUNE_TRACKING = False
 
 load_dotenv(".env")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

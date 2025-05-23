@@ -18,8 +18,10 @@ class SimpleParamEmbedding(nn.Module):
         super(SimpleParamEmbedding, self).__init__()
 
         self.param_dims = n_params
-        self.interaction_weights = nn.Parameter(torch.randn(n_params, n_params))
-        self.n_param_to_target = nn.Parameter(torch.randn(target_dim, n_params))
+        self.n_param_to_target = nn.Linear(
+            in_features=n_params,
+            out_features=target_dim,
+        )
 
     def forward(self, params: TensorType["n_params", "batch"]):
         """
@@ -30,6 +32,5 @@ class SimpleParamEmbedding(nn.Module):
             params.transpose(0, 1), offset=0, dim1=0, dim2=1
         ).transpose(1, 2)
 
-        res = torch.einsum("il,jkl->jki", self.n_param_to_target, res)
-
+        res = self.n_param_to_target(res)
         return res

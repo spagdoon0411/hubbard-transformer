@@ -29,11 +29,10 @@ class OccupationSpinEmbedding(nn.Module):
 
         self.ldims = ft.reduce(lambda x, y: x * y, input_token_dims)
         self.einops_pattern = einops_pattern
-        self.occs_to_logits = nn.Parameter(
-            torch.randn(
-                output_token_dims,
-                self.ldims,
-            ),
+
+        self.occs_to_logits = nn.Linear(
+            in_features=self.ldims,
+            out_features=output_token_dims,
         )
 
     def forward(self, occupations: TensorType["seq", "batch", "..."]):
@@ -52,5 +51,5 @@ class OccupationSpinEmbedding(nn.Module):
         pattern = f"s b {input} -> s b {output}"
 
         occs = ein.rearrange(occupations, pattern)
-        occs = ein.einsum(occs, self.occs_to_logits, "s b l, e l -> s b e")
+        occs = self.occs_to_logits(occs)
         return occs
