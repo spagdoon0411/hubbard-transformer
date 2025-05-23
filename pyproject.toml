@@ -18,3 +18,7 @@ dependencies = [
     "torchtyping>=0.1.5",
     "torchviz>=0.0.3",
 ]
+
+# [[tool.uv.index]]
+# name = "pytorch"
+# url = "https://download.pytorch.org/whl/cu128"
