@@ -264,6 +264,19 @@ class Sampling:
         # type: ignore is because of Tensor -> TensorType error
         more_tokens = self._enforce_particle_num(more_tokens)  # type: ignore
 
+        particle_count = (
+            ein.rearrange(
+                more_tokens,
+                "s b o sp -> (s sp) b o",
+            )
+            .argmax(dim=-1)
+            .sum(dim=0)
+        )
+
+        assert torch.all(
+            particle_count == self.particle_number
+        ), "Particle counts don't match counts of model"
+
         more_tokens = more_tokens.to(dtype=torch.float32)
 
         if compute_log_prob:
