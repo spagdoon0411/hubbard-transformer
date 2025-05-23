@@ -298,17 +298,22 @@ def test_hop_counting(i_c, i_a, hopped_operators, expected):
 
 
 @pytest.mark.parametrize(
-    "str1, str2, expected",
+    "str1, str2, expected, U",
     [
-        ("000000", "000000", 0.0),
-        ("110000", "110000", 2.0),
-        ("111100", "111100", 4.0),
-        ("001100", "001100", 2.0),
-        ("000011", "000011", 2.0),
+        ("000000", "000000", 0.0, 2.0),
+        ("110000", "110000", 2.0, 2.0),
+        ("111100", "111100", 4.0, 2.0),
+        ("001100", "001100", 2.0, 2.0),
+        ("000011", "000011", 2.0, 2.0),
+        ("000000", "000000", 0.0, 3.0),
+        ("110000", "110000", 3.0, 3.0),
+        ("111100", "111100", 6.0, 3.0),
+        ("001100", "001100", 3.0, 3.0),
+        ("000011", "000011", 3.0, 3.0),
     ],
 )
-def test_diagonal(str1: str, str2: str, expected: float):
-    ham = HubbardHamiltonian(t=1.0, U=2.0)
+def test_diagonal(str1: str, str2: str, expected: float, U: float):
+    ham = HubbardHamiltonian(t=1.0, U=U)
     assert (
         ham.entry(
             expand_str_chain(str1),
