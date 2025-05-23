@@ -1,5 +1,6 @@
 from model.model import HubbardWaveFunction
 from model.hamiltonian import HubbardHamiltonian
+from model.weight_init import initialize_weights
 import torch
 from typing import Any, Optional
 import pdb
@@ -88,6 +89,8 @@ def run_optimization(
         particle_number=run_params["particle_number"],
         max_len=run_params["max_len"],
     )
+
+    initialize_weights(model)
 
     if run := diag.get("run"):
         run["model/architecture"] = str(model)
