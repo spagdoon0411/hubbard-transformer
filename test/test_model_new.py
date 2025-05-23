@@ -146,7 +146,7 @@ def test_reliable_e_loc(model_hamiltonian):
     expect_tensor_calc = torch.einsum(
         "b, b -> ",
         e_loc_values,
-        probs,  # TODO: was this normalized?
+        probs,
     )
 
     from_tensor = expect_tensor_calc
