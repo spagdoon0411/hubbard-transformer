@@ -3,8 +3,12 @@ from typing import Optional
 import torch
 import ipdb
 
+forward_counter = {}
+
 
 def create_forward_hook(module_name, neptune_run: Optional[neptune.Run]):
+    forward_counter[module_name] = 0
+
     def log_activation_statistics(module, inputs, outputs):
         try:
             if neptune_run is None:
@@ -47,8 +51,11 @@ def create_forward_hook(module_name, neptune_run: Optional[neptune.Run]):
             ipdb.set_trace()
 
     def forward_hook(module, inputs, outputs):
-        with torch.no_grad():
-            log_activation_statistics(module, inputs, outputs)
+        if forward_counter[module_name] % 250 == 0:
+            with torch.no_grad():
+                log_activation_statistics(module, inputs, outputs)
+
+        forward_counter[module_name] += 1
 
     return forward_hook
 
