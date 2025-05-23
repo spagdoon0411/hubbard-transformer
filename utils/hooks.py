@@ -14,6 +14,9 @@ def create_forward_hook(module_name, neptune_run: Optional[neptune.Run]):
             if type(inputs) is not tuple:
                 inputs = (inputs,)
 
+            if type(outputs) is not tuple:
+                outputs = (outputs,)
+
             for i, input in enumerate(inputs):
                 if input is not None:
                     input_mean = input.mean().item()
