@@ -280,7 +280,7 @@ class HubbardWaveFunction(nn.Module):
 
         sample_psi = torch.where(
             sample_psi.abs() < 1e-4,
-            sample_psi + 1e-4,
+            torch.sgn(sample_psi) * 1e-4,
             sample_psi,
         )
 
