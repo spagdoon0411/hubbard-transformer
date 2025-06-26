@@ -320,7 +320,7 @@ class HubbardWaveFunction(nn.Module):
 
         s, b, _, _ = sampled_states.shape
 
-        basis_psi, basis, norm = self.compute_basis_information(
+        basis_psi, basis, _ = self.compute_basis_information(
             num_sites=s,
             params=params,  # n_params
         )  # (b, s h o sp)
