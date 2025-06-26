@@ -345,9 +345,11 @@ class HubbardWaveFunction(nn.Module):
             sampled_psi,
             "s b sp -> b",
             reduction="prod",
-        )  # b
+        )
 
-        sampled_psi = sampled_psi / norm.sqrt()  # b
+        # Calculate norms across the sampled states
+
+        # NOTE: we should have one psi-value per basis entry
 
         # Invididual entries of < a | H | b > where the sampled states (axis b)
         # are the bras and the basis states (axis h) are the kets
