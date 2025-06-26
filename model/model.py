@@ -249,19 +249,27 @@ class HubbardWaveFunction(nn.Module):
             reduction="prod",
         )  # b
 
-        norm = ein.reduce(
+        # Calculate probability normalization factor from sampling probabilities
+        normalization_factor = ein.reduce(
+            # The probability of a sample is a product across the chain
             ein.reduce(
                 probs,
                 "s b sp -> b",
                 reduction="prod",
             ),
+            # Then sum along all basis states to get the final normalization factor
             "b -> ",
             reduction="sum",
         )
 
-        psi = psi / norm.sqrt()  # b
+        psi = psi / torch.sqrt(normalization_factor)
 
-        return psi, basis, norm
+        # N = < psi' | psi' >
+
+        # < psi' / sqrt(N) | psi' / sqrt(N) >
+        # = (1 / N) ( < psi | psi > )
+
+        return psi, basis, normalization_factor
 
     def _compute_e_loc(
         self,
