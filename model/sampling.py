@@ -222,12 +222,6 @@ class Sampling:
         # s b o sp
         more_tokens = torch.zeros([n_tokens, batch] + token_dims)
 
-        # A tensor of logits to expand
-        logits = self.embedding_function(
-            params=params,
-            tokens=tokens[:seq, :, :],
-        )
-
         # Log-probs associated with sampling this whole chain
         chain_log_probs = torch.zeros(batch)
 
