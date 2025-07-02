@@ -13,7 +13,7 @@ class HubbardDeembedding(nn.Module):
     def __init__(
         self,
         embed_dim: int,
-        target_token_dims: list[int] = [2, 128],
+        target_token_dims: list[int] = [2, 2],
     ):
         super(HubbardDeembedding, self).__init__()
         self.embed_dim = embed_dim
