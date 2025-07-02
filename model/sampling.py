@@ -1,15 +1,9 @@
-from typing import Callable
 from torch.nn import TransformerEncoder
 from torchtyping import TensorType
 import torch
-import pickle
-import os
 from torch.distributions import Categorical
 import torch.nn.functional as F
-import functools as ft
 import einops as ein
-import pdb
-import ipdb
 
 from model.hubbard_deembedding import HubbardDeembedding
 from model.site_degree_embedding import SiteDegreeEmbedding
