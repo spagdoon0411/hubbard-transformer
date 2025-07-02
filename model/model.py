@@ -109,7 +109,6 @@ class HubbardWaveFunction(nn.Module):
         num_chains: int,
         chain_length: int,
         params: TensorType["n_params"],
-        compute_log_prob: bool = False,
     ):
         """
         Produces num_chains most-probable token chains of length chain_length based
@@ -126,28 +125,14 @@ class HubbardWaveFunction(nn.Module):
             num_chains,
             *self.embedding.input_token_dims,
         )
+
         chains, log_probs = self.sampling.sample(
             params=params,
             tokens=tokens,
             up_to=chain_length,
         )
 
-        if (dir := self.diag.get("dump_samples", None)) is not None:
-            if not os.path.exists(dir):
-                os.makedirs(dir, exist_ok=True)
-
-            with open(os.path.join(dir, "chains.pkl"), "wb") as f:
-                pickle.dump(chains, f)
-
-            with open(os.path.join(dir, "log_probs.pkl"), "wb") as f:
-                pickle.dump(log_probs, f)
-
-            self.diag["dump_samples"] = None
-
-        if compute_log_prob:
-            return chains, log_probs
-
-        return chains
+        return chains, log_probs
 
     @lru_cache(maxsize=None)  # Ideally we only cache once
     def generate_basis(

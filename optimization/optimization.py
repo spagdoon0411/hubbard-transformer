@@ -41,7 +41,6 @@ def optimization_step(
         num_chains=batch_size,
         chain_length=n_sites,
         params=params,  # type: ignore
-        compute_log_prob=True,
     )
 
     # Estimate < E_loc > based on samples
