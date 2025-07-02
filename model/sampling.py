@@ -48,58 +48,35 @@ class Sampling:
 
     def _generate_samples(
         self,
-        prob_dist: TensorType["batch", "..."] | torch.Tensor,
+        prob_dist: torch.Tensor,
         branching_fact: int,
     ):
+        """
+        Generates branching_fact samples from the given probability distribution over
+        next tokens.
+
+        prob_dist: (b, o, sp), the distribution to sample next tokens from.
+        branching_fact: int, the number of samples to generate from the distribution.
+        """
+
         if branching_fact < 1:
             raise ValueError("Branching factor must be at least 1")
 
         if branching_fact != 1:
             raise NotImplementedError("Branching factors other than 1 not implemented")
 
-        # Bring into simpler reshape space
+        # Reshape to (b, o, sp) -> (b, sp, o) for Categorical sampling, then reshape back to (b, o, sp)
+        # before returning.
 
         prob_dist = ein.rearrange(
             prob_dist,
             "b o sp -> b sp o",
         )
 
-        if (dir := self.diag.get("dump_probs")) is not None:
-            if not os.path.exists(dir):
-                os.makedirs(dir, exist_ok=True)
-
-            with open(os.path.join(dir, "probs.pkl"), "wb") as f:
-                pickle.dump(prob_dist, f)
-
-            self.diag["dump_probs"] = None
-
-        # Assuming the token dimensions are tailing the other
-        # axes
-        flatten_point = 2
-        token_shape = list(prob_dist.shape)[flatten_point:]
-        batch_shape = list(prob_dist.shape)[:flatten_point]
-        token_flat_dim = ft.reduce(
-            lambda x, y: x * y,
-            token_shape,
-        )
-
-        prob_dist = prob_dist.flatten(start_dim=flatten_point)
-
-        # S
         cat = Categorical(probs=prob_dist)
-        next = cat.sample()  # (b, sp)
-        log_prob = cat.log_prob(next)  # (b, sp)
-
-        # Map back to one-hot
-        samples = F.one_hot(next, num_classes=token_flat_dim)
-        samples.reshape(
-            *batch_shape,
-            *token_shape,
-        )
-        prob_dist = prob_dist.reshape(
-            *batch_shape,
-            *token_shape,
-        )
+        next_token = cat.sample()  # (b, sp)
+        log_prob = cat.log_prob(next_token)  # (b, sp)
+        samples = F.one_hot(next_token, num_classes=prob_dist.shape[-1])  # (b, sp, o)
 
         prob_dist = ein.rearrange(
             prob_dist,
