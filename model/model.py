@@ -290,6 +290,11 @@ class HubbardWaveFunction(nn.Module):
             "b h, b, h -> b",  # TODO: does this scale by the b-values?
         )  # The bra-psi are the sampled states
 
+        if E_loc_values.isnan().any():
+            raise ValueError(
+                "E_loc values contain NaNs but sample_psi and basis psi do not."
+            )
+
         if met := get_log_metric(self.diag, "extra/avg_e_loc_summands"):
             E_loc_abs = ein.einsum(
                 h_entries,
