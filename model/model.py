@@ -128,9 +128,8 @@ class HubbardWaveFunction(nn.Module):
         )
         chains, log_probs = self.sampling.sample(
             params=params,
-            tokens=tokens,  # type: ignore
+            tokens=tokens,
             up_to=chain_length,
-            compute_log_prob=True,
         )
 
         if (dir := self.diag.get("dump_samples", None)) is not None:
