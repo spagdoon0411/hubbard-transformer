@@ -50,7 +50,6 @@ class Sampling:
         self,
         prob_dist: TensorType["batch", "..."] | torch.Tensor,
         branching_fact: int,
-        compute_log_prob: bool = False,
     ):
         if branching_fact < 1:
             raise ValueError("Branching factor must be at least 1")
@@ -112,11 +111,7 @@ class Sampling:
             "b sp o -> b o sp",
         )
 
-        if compute_log_prob:
-            # b o sp, b sp
-            return samples, log_prob
-
-        return samples
+        return samples, log_prob
 
     def _enforce_particle_num(
         self, tokens: TensorType["n_tokens", "batch", "..."]
@@ -228,9 +223,7 @@ class Sampling:
 
         # Generate next tokens across the batch dimension, producing one sample
         # per batch element.
-        next, log_probs = self._generate_samples(
-            prob_dist, 1, compute_log_prob=True
-        )  # b o sp, b sp
+        next, log_probs = self._generate_samples(prob_dist, 1)  # b o sp, b sp
 
         step_log_probs = ein.einsum(log_probs, "b sp -> b")
         return next, step_log_probs
