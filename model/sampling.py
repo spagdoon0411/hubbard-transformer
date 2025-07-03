@@ -1,6 +1,7 @@
 from torch.nn import TransformerEncoder
 from torchtyping import TensorType
 import torch
+import ipdb
 from torch.distributions import Categorical
 import torch.nn.functional as F
 import einops as ein
@@ -43,7 +44,7 @@ class Sampling:
     def _generate_samples(
         self,
         prob_dist: torch.Tensor,
-        branching_fact: int,
+        n_samples: int,
     ):
         """
         Generates branching_fact samples from the given probability distribution over
@@ -53,11 +54,8 @@ class Sampling:
         branching_fact: int, the number of samples to generate from the distribution.
         """
 
-        if branching_fact < 1:
-            raise ValueError("Branching factor must be at least 1")
-
-        if branching_fact != 1:
-            raise NotImplementedError("Branching factors other than 1 not implemented")
+        if n_samples < 1:
+            raise ValueError("Number of samples must be at least 1")
 
         # Reshape to (b, o, sp) -> (b, sp, o) for Categorical sampling, then reshape back to (b, o, sp)
         # before returning.
@@ -84,71 +82,59 @@ class Sampling:
 
         return samples, log_prob
 
-    def _enforce_particle_num(
-        self, tokens: TensorType["n_tokens", "batch", "..."]
-    ) -> TensorType["n_tokens", "batch", "..."]:
+    def _enforce_particle_num(self, tokens: torch.Tensor) -> torch.Tensor:
         """
         Ensures the number of particles over the whole chain matches the value prescribed
-        on initialization.
-
-        The one-hot encodings either need to be bumped up or down the occupation dimension
-        to adjust the number of particles in the chain
+        on initialization by randomly distributing particles in available slots.
         """
 
         seq, batch, occ, sp = tokens.shape
-        max_occ_idx = occ - 1
 
         site_occs = tokens.argmax(dim=-2)  # (s, b, sp)
         site_occs = ein.rearrange(site_occs, "s b sp -> (s sp) b")
 
-        # Determine how many particles need to be added to each chain to achieve
-        # the target particle number
-        diffs = site_occs.sum(dim=0)  # (b,)
-        diffs = self.particle_number - diffs
+        # Find the number of particles still needed to fill each chain
+        diffs = self.particle_number - ein.einsum(site_occs, "s_sp b -> b")
+
+        # Map holes to particles for chains that have too many particles.
         negative_diffs = diffs < 0
+        site_occs[:, negative_diffs] = 1 - site_occs[:, negative_diffs]
         diffs = diffs.abs()
 
-        # Start counting holes instead of particles for the chains that
-        # have to have particles removed
-        site_occs[:, negative_diffs] = max_occ_idx - site_occs[:, negative_diffs]
-
-        if DEBUG_ASSERTIONS:
-            assert diffs.shape == (batch,)
-            assert negative_diffs.shape == (batch,)
-            assert site_occs.shape == (seq * sp, batch)
-
-        adjustments_needed = diffs > 0  # (b,)
-        while adjustments_needed.sum().item():
-            available_sites = site_occs < max_occ_idx
+        adjustments_needed = diffs > 0
+        while torch.any(adjustments_needed):
+            available_sites = site_occs < 1
             available_count = available_sites.sum(dim=0)  # (b,)
-            if available_count.sum().item() == 0:
+
+            if torch.any(available_count == 0 & adjustments_needed):
                 raise ValueError(
-                    f"No available sites to add particles to. Can your chain support a particle number of {self.particle_number}?"
+                    "Not enough available sites to fill the particle number in some chains. Can the chain support enough particles?"
                 )
 
-            site_selection_rand = torch.rand(available_sites.shape)
-            site_selection_rand[~available_sites] = -torch.inf
-            target_sites = torch.argmax(site_selection_rand, dim=0)
-            del site_selection_rand
+            incomplete_chains = site_occs[:, adjustments_needed]
+            available_sites = available_sites[:, adjustments_needed]
 
-            remaining_cap = max_occ_idx - site_occs[target_sites, torch.arange(batch)]
-            adjustments = torch.rand(adjustments_needed.shape)
-            sample_ceil = torch.min(diffs, remaining_cap)
-            adjustments = (adjustments * (sample_ceil + 1)).to(torch.int)
+            # For each incomplete chain, choose one index along (s sp) to fill
+            selection = torch.rand(incomplete_chains.shape)
+            selection[~available_sites] = -torch.inf  # Don't select unavailable sites
+            selection = selection.argmax(dim=0)  # (incomplete,)
 
-            site_occs[target_sites, torch.arange(batch)] += adjustments
-            diffs -= adjustments
+            site_occs[selection, adjustments_needed] += 1
 
+            # We filled one site in each chain
+            diffs -= 1
             adjustments_needed = diffs > 0
 
-        site_occs[:, negative_diffs] = max_occ_idx - site_occs[:, negative_diffs]
+        # Restore particle problems to hole problems
+        site_occs[:, negative_diffs] = 1 - site_occs[:, negative_diffs]
+
+        # Map flattened representation back to tokens
         site_occs = ein.rearrange(
             site_occs,
             "(s sp) b -> s b sp",
             s=seq,
             sp=sp,
         )
-
         new_tokens = F.one_hot(site_occs, num_classes=occ)  # (s, b, sp, o)
         new_tokens = ein.rearrange(new_tokens, "s b sp o -> s b o sp")
 
@@ -242,7 +228,7 @@ class Sampling:
                 [more_tokens, next.unsqueeze(0)], dim=0
             )  # Add the new token along the sequence dimension
 
-        more_tokens = self._enforce_particle_num(more_tokens)  # type: ignore
+        more_tokens = self._enforce_particle_num(more_tokens)
 
         more_tokens = more_tokens.to(dtype=torch.float32)
 
