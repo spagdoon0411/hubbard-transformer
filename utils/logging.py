@@ -59,6 +59,11 @@ def chains_to_strings(samples: torch.Tensor):
     return strings
 
 
+def chain_strings_to_integers(sample_strings: list[str]) -> torch.Tensor:
+    int_list = [int(s, 2) for s in sample_strings]
+    return torch.tensor(int_list, dtype=torch.int64)
+
+
 def display_heatmap(
     matrix: torch.Tensor,
     y_labels: list[str],

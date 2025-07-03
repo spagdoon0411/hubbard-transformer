@@ -3,6 +3,10 @@ from model.model import HubbardWaveFunction
 import pytest
 import einops as ein
 import torch
+from utils.logging import chains_to_strings, chain_strings_to_integers
+import matplotlib.pyplot as plt
+
+SHOW_PLOTS = False
 
 
 @pytest.fixture
@@ -41,7 +45,12 @@ def model_hamiltonian():
 def some_samples(model_hamiltonian):
     h_model = model_hamiltonian["h_model"]
     params = model_hamiltonian["params"]
-    sample_size = 1000
+    sample_size = 30000
+
+    basis_psi, basis, _ = h_model.compute_basis_information(
+        4,
+        params,
+    )
 
     samples, log_probs = h_model.sample(
         num_chains=sample_size,
@@ -51,8 +60,8 @@ def some_samples(model_hamiltonian):
 
     return {
         **model_hamiltonian,
-        # "basis_psi": basis_psi,
-        # "basis": basis,
+        "basis_psi": basis_psi,
+        "basis": basis,
         "samples": samples,
         "sample_size": sample_size,
         "log_probs": log_probs,
@@ -123,3 +132,87 @@ def test_generate_samples(model_hamiltonian):
     assert (
         kl_div < 0.01
     ), "KL divergence between sampled and original distribution is too high"
+
+
+def test_kl_convergence(some_samples):
+    """
+    The distance between the sampled distribution and the original
+    distribution should be small in the limit of many samples.
+    """
+
+    # TODO: check that the basis states are in the same order as basis_psi
+    # returned here.
+
+    basis = some_samples["basis"]
+    basis_psi = some_samples["basis_psi"]
+    samples = some_samples["samples"]
+    sample_size = some_samples["sample_size"]
+
+    # Should converge to this distribution, from the model
+    basis_dist = basis_psi.abs() ** 2  # (s, b, o, sp)
+
+    basis_strs = chains_to_strings(basis)
+    samples_strs = chains_to_strings(samples)
+    basis_ints = chain_strings_to_integers(basis_strs)
+    samples_ints = chain_strings_to_integers(samples_strs)
+
+    # NOTE: basis ints are in descending order
+
+    samples_ints_unique, counts = samples_ints.unique(
+        return_counts=True
+    )  # (n_unique,), (n_unique,)
+
+    # Add missing basis states to the sample basis state counts as zeros
+    for i in range(basis_ints.shape[0]):
+        if basis_ints[i] not in samples_ints_unique:
+            samples_ints_unique = torch.cat(
+                (samples_ints_unique, torch.tensor([basis_ints[i]]))
+            )
+            counts = torch.cat((counts, torch.tensor([0])))
+
+    rev_sort = torch.argsort(samples_ints_unique, descending=True)
+    samples_ints_unique = samples_ints_unique[rev_sort]
+    counts = counts[rev_sort]
+
+    samples_dist = counts / sample_size
+
+    assert torch.all(
+        samples_ints_unique == basis_ints
+    ), "Sampled basis states do not match the original basis states after sorting"
+
+    kl_div = ein.einsum(
+        torch.nn.functional.kl_div(
+            samples_dist.log(),
+            basis_dist.flatten().log(),
+            reduction="none",
+            log_target=True,
+        ),
+        "b -> ",
+    )
+
+    if SHOW_PLOTS:
+        # Plot samples_dist and basis_dist as bar charts
+        plt.bar(
+            range(len(samples_ints_unique)),
+            samples_dist.detach().numpy(),
+            label="Sampled Distribution",
+            alpha=0.5,
+        )
+
+        plt.bar(
+            range(len(basis_ints)),
+            basis_dist.detach().numpy().flatten(),
+            label="Basis Distribution",
+            alpha=0.5,
+        )
+
+        plt.title(f"Sampled vs Basis Distribution, KL Divergence: {kl_div.item():.4f}")
+
+        plt.legend()
+        plt.show()
+
+    assert (
+        kl_div < 0.3
+    ), "KL divergence between sampled and original distribution is too high: {:.4f}".format(
+        kl_div.item()
+    )
