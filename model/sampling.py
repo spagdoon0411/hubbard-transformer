@@ -1,7 +1,5 @@
 from torch.nn import TransformerEncoder
-from torchtyping import TensorType
 import torch
-import ipdb
 from torch.distributions import Categorical
 import torch.nn.functional as F
 import einops as ein

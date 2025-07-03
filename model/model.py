@@ -1,10 +1,8 @@
 from torch import nn
 import torch.nn.functional as F
 import torch
-import os
 from utils.logging import get_log_metric, tensor_to_string
 import einops as ein
-from typing import Optional
 from torchtyping import TensorType
 from model.site_degree_embedding import SiteDegreeEmbedding
 import itertools as it
@@ -15,7 +13,6 @@ from model.position_encoding import PositionEncoding
 from model.hubbard_deembedding import HubbardDeembedding
 from model.sampling import Sampling
 from model.hamiltonian import HubbardHamiltonian
-import pickle
 
 DUMP_SAMPLES = False
 

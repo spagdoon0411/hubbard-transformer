@@ -1,7 +1,5 @@
 import pytest
 import torch
-import numpy as np
-import ipdb
 import einops as ein
 import math
 from utils.exact_diagonalization import exact_diagonalize

@@ -3,8 +3,7 @@ from model.hamiltonian import HubbardHamiltonian
 from model.weight_init import initialize_weights
 from utils.hooks import register_hooks_for_all_modules
 import torch
-from typing import Any, Optional
-import pdb
+from typing import Optional
 import os
 import neptune
 from datetime import datetime

@@ -5,7 +5,6 @@ import torch
 import logging
 import einops as ein
 from utils.logging import display_heatmap
-import functools as ft
 import torch.nn.functional as F
 
 HEATMAPS = False

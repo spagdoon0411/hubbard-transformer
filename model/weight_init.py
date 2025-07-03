@@ -2,7 +2,6 @@
 
 from model.model import HubbardWaveFunction
 import torch.nn.init as init
-from utils.dummy_data import create_occupations, create_uniform_params, create_params
 
 
 wv = HubbardWaveFunction(
