@@ -42,7 +42,6 @@ class Sampling:
     def _generate_samples(
         self,
         prob_dist: torch.Tensor,
-        n_samples: int,
     ):
         """
         Generates branching_fact samples from the given probability distribution over
@@ -51,9 +50,6 @@ class Sampling:
         prob_dist: (b, o, sp), the distribution to sample next tokens from.
         branching_fact: int, the number of samples to generate from the distribution.
         """
-
-        if n_samples < 1:
-            raise ValueError("Number of samples must be at least 1")
 
         # Reshape to (b, o, sp) -> (b, sp, o) for Categorical sampling, then reshape back to (b, o, sp)
         # before returning.
@@ -178,7 +174,7 @@ class Sampling:
 
         # Generate next tokens across the batch dimension, producing one sample
         # per batch element.
-        next, log_probs = self._generate_samples(prob_dist, 1)  # b o sp, b sp
+        next, log_probs = self._generate_samples(prob_dist)  # b o sp, b sp
 
         step_log_probs = ein.einsum(log_probs, "b sp -> b")
         return next, step_log_probs
