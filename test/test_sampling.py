@@ -97,17 +97,29 @@ def test_generate_samples(model_hamiltonian):
     # Single-token probability distribution
     prob_dist = torch.rand(16, 2, 2)  # (batch, occ, spin)
     prob_dist /= prob_dist.sum(
-        dim=-1, keepdim=True
-    )  # Normalize to make it a valid distribution
+        dim=-2, keepdim=True
+    )  # Normalize over the occupation axis, not the spin axis
 
-    branching_fact = 1
+    all_samples = torch.zeros((3000, 16, 2, 2))  # Preallocate space for samples
+    for i in range(3000):
+        samples, log_prob = h_model.sampling._generate_samples(
+            prob_dist
+        )  # (16, 2, 2), (16, 2)
+        all_samples[i] = samples
 
-    samples, log_prob = h_model.sampling._generate_samples(prob_dist, branching_fact)
+    # Do samples reflect the probability distributions?
+    sum = all_samples.sum(dim=0) / 3000  # (16, 2, 2)
 
-    assert samples.shape == (16, 2, 2), "Sample shape mismatch"
-    assert log_prob.shape == (16, 2), "Log probability shape mismatch"
+    kl_div = ein.einsum(
+        torch.nn.functional.kl_div(
+            sum.log(),
+            prob_dist.log(),
+            reduction="none",
+            log_target=True,
+        ),  # Computes pointwise KL divergence terms
+        "b o sp -> ",
+    )
 
-    # Check if the samples are one-hot encoded along the occupation axis
-    assert torch.all(
-        samples.sum(dim=-2) == 1
-    ), "Occupation axis doesn't meet one-hot constraint"
+    assert (
+        kl_div < 0.01
+    ), "KL divergence between sampled and original distribution is too high"
