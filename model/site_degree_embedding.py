@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from torchtyping import TensorType
 from model.param_embedding import SimpleParamEmbedding
 from model.token_embedding import OccupationSpinEmbedding
 from model.position_encoding import PositionEncoding
@@ -49,11 +48,12 @@ class SiteDegreeEmbedding(nn.Module):
             wavelen_fact=wavelen_fact,
         )
 
-    def forward(
-        self,
-        params: TensorType["n_params", "batch"],
-        tokens: TensorType["seq", "batch", "..."],
-    ):
+    def forward(self, params: torch.Tensor, tokens: torch.Tensor):
+        """
+        params: (n_params, batch)
+        tokens: (seq, batch, ...)
+        """
+
         (n_params, param_batch) = params.shape
         n_tokens = tokens.shape[0]
         token_batch = tokens.shape[1]

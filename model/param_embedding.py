@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from torchtyping import TensorType
 
 
 class SimpleParamEmbedding(nn.Module):
@@ -23,9 +22,9 @@ class SimpleParamEmbedding(nn.Module):
             out_features=target_dim,
         )
 
-    def forward(self, params: TensorType["n_params", "batch"]):
+    def forward(self, params: torch.Tensor) -> torch.Tensor:
         """
-        Returns: TensorType["n_params", "batch", "embed_params"]
+        Returns: torch.Tensor with shape (target_dim, batch)
         """
 
         res = torch.diag_embed(

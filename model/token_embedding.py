@@ -1,5 +1,5 @@
+import torch
 from torch import nn
-from torchtyping import TensorType
 import einops as ein
 import re
 import functools as ft
@@ -34,7 +34,7 @@ class OccupationSpinEmbedding(nn.Module):
             out_features=output_token_dims,
         )
 
-    def forward(self, occupations: TensorType["seq", "batch", "..."]):
+    def forward(self, occupations: torch.Tensor) -> torch.Tensor:
         """
         occupations: (seq, batch, d1, ..., dn)
         """

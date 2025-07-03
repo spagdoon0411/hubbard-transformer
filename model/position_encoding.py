@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from torchtyping import TensorType
 
 
 class PositionEncoding(nn.Module):
@@ -47,7 +46,10 @@ class PositionEncoding(nn.Module):
         self.pe: torch.Tensor
         self.register_buffer("pe", pe)
 
-    def forward(self, x: TensorType["seq", "batch", "embed"]):
+    def forward(
+        self,
+        x: torch.Tensor,  # (seq, batch, embed)
+    ):
         """
         Takes a buffer and mutates it to include the positional encoding
         """

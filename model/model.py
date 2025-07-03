@@ -3,7 +3,6 @@ import torch.nn.functional as F
 import torch
 from utils.logging import get_log_metric, tensor_to_string
 import einops as ein
-from torchtyping import TensorType
 from model.site_degree_embedding import SiteDegreeEmbedding
 import itertools as it
 from functools import lru_cache
@@ -105,7 +104,7 @@ class HubbardWaveFunction(nn.Module):
         self,
         num_chains: int,
         chain_length: int,
-        params: TensorType["n_params"],
+        params: torch.Tensor,  # (n_params, batch)
     ):
         """
         Produces num_chains most-probable token chains of length chain_length based
@@ -298,8 +297,8 @@ class HubbardWaveFunction(nn.Module):
     def e_loc(
         self,
         hamiltonian: HubbardHamiltonian,
-        params: TensorType["n_params"],
-        sampled_states: TensorType["seq", "batch", "occupation", "spin"],
+        params: torch.Tensor,  # (n_params,)
+        sampled_states: torch.Tensor,  # (seq, batch, occupation, spin)
     ):
         """
         Computes the expectation value of E_loc using the wave function that this
@@ -377,8 +376,8 @@ class HubbardWaveFunction(nn.Module):
 
     def forward(
         self,
-        params: TensorType["n_params", "batch"],
-        tokens: TensorType["seq", "batch", "occupation", "spin"],
+        params: torch.Tensor,  # (n_params, batch)
+        tokens: torch.Tensor,  # (seq, batch, occupation, spin)
     ):
         """
         Given a sequence of tokens and parameters, produces the probabilities and phases

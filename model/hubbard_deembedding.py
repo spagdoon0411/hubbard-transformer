@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from torchtyping import TensorType
 import functools as ft
 
 
@@ -49,13 +48,12 @@ class HubbardDeembedding(nn.Module):
         psi = probs.sqrt() * torch.exp(1j * phases)  # s b sp
         return psi
 
-    def forward(
-        self,
-        logit: TensorType["batch", "embed"] | TensorType["seq", "batch", "embed"],
-        calculate_phase: bool = False,
-    ):
+    def forward(self, logit: torch.Tensor, calculate_phase: bool = False):
         """
-        Returns: TensorType["seq", "batch", str.(target_token_dims)]
+        logit: torch.Tensor, (batch, embed) or (seq, batch, embed)
+        calculate_phase: bool, whether to calculate phases or not
+
+        Returns: torch.Tensor with shape (seq, batch, *target_token_dims)
         """
 
         single = False
