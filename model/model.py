@@ -130,11 +130,10 @@ class HubbardWaveFunction(nn.Module):
 
         return chains, log_probs
 
-    @lru_cache(maxsize=None)  # Ideally we only cache once
-    def generate_basis(
+    def generate_basis_at_pnum(
         self,
         num_sites: int,
-    ):
+    ) -> torch.Tensor:
         """
         Produces a basis meeting particle number constraints in the s b o sp format.
         """
@@ -181,6 +180,60 @@ class HubbardWaveFunction(nn.Module):
 
         return flat_states  # s h o sp == s nCk o sp
 
+    @lru_cache(maxsize=None)  # Ideally we only cache once
+    def generate_basis(
+        self,
+        num_sites: int,
+    ) -> torch.Tensor:
+        """
+        Create a full basis of states for the Hubbard model, without particle
+        number constraints.
+
+        Args:
+            num_sites (int): Number of sites in the system.
+
+        Returns:
+            torch.Tensor: Tensor representing all possible binary states.
+                          Shape: (num_sites, 4^num_sites, 2, 2)
+        """
+        # Total number of particle slots (2 per site)
+        num_slots = num_sites * 2
+
+        # Generate all possible binary states (2^num_slots combinations)
+        flat_states = torch.arange(2**num_slots, dtype=torch.long).unsqueeze(1)
+
+        flat_states = torch.bitwise_and(
+            flat_states >> torch.arange(num_slots, dtype=torch.long),
+            torch.tensor(1, dtype=torch.long),
+        ).T  # Shape: (num_slots, 2^num_slots)
+
+        off_diag_mask = torch.eye(2**num_slots, dtype=torch.bool) == 0
+        diffs = (flat_states.unsqueeze(1) - flat_states.unsqueeze(2)).abs()
+
+        assert torch.all(
+            ein.einsum(
+                diffs[:, off_diag_mask],
+                "s_sp n -> n",
+            )
+            != 0
+        ), "All off-diagonal chain pairings should have at least one differing site"
+
+        # These are now unique binary chains with as many slots for particles
+        # as there are sites.
+
+        # Reshape to s h o sp format
+        flat_states = F.one_hot(
+            flat_states, num_classes=2
+        )  # Shape: (num_slots, 2^num_slots, 2)
+        flat_states = ein.rearrange(
+            flat_states,
+            "(s sp) h o -> s h o sp",
+            sp=2,
+            s=num_sites,
+        )
+
+        return flat_states.to(dtype=torch.float32)
+
     def compute_basis_information(
         self,
         num_sites: int,
@@ -205,7 +258,7 @@ class HubbardWaveFunction(nn.Module):
             along the h ("Hilbert") axis.
         """
 
-        basis = self.generate_basis(num_sites=num_sites)  # (s, h, o, sp)
+        basis = self.generate_basis_at_pnum(num_sites)  # (s, h, o, sp)
         s, h, o, sp = basis.shape
         params = ein.repeat(
             params,

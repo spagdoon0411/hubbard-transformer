@@ -154,3 +154,34 @@ def test_reliable_e_loc(model_hamiltonian):
             from_tensor,
             from_diag,
         ), f"e_loc values don't match exact diag. Calculated: {from_tensor}, from exact diag: {from_diag}."
+def test_full_basis_generation(model_hamiltonian):
+    """
+    Tests that a complete basis is generated in (s b o sp) format
+    """
+
+    h_model = model_hamiltonian["h_model"]
+
+    # s b o sp
+    basis = h_model.generate_basis(5)
+
+    assert basis.shape == (5, 1024, 2, 2), (
+        "Basis should have shape (5, 2 ** (2 * num_sites), 2, 2)"
+    )
+
+    assert torch.all(ein.einsum(basis, "s b o sp -> s b sp") == 1)
+
+    # Diffs along batch dimension
+    diffs = (
+        basis.unsqueeze(1) - basis.unsqueeze(2)
+    ).abs()  # (s 1 b o sp) - (s b 1 o sp)
+
+    off_diag_mask = torch.eye(1024) == 0
+    off_diag_diffs = diffs[:, off_diag_mask, :, :]  # (s n_off o sp)
+    off_diag_diffs = ein.einsum(off_diag_diffs, "s n o sp -> n")
+
+    diag_mask = torch.eye(1024) == 1
+    diag_diffs = diffs[:, diag_mask, :, :]  # (s 1024 o sp)
+    diag_diffs = ein.einsum(diag_diffs, "s n o sp -> n")
+
+    assert torch.all(diag_diffs == 0), "Diagonal entries should be equal"
+    assert torch.all(off_diag_diffs != 0), "Generated basis state are not unique"
