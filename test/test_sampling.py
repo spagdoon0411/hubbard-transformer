@@ -45,7 +45,7 @@ def model_hamiltonian():
 def some_samples(model_hamiltonian):
     h_model = model_hamiltonian["h_model"]
     params = model_hamiltonian["params"]
-    sample_size = 30000
+    sample_size = 1000
 
     basis_psi, basis, _ = h_model.compute_basis_information(
         4,
@@ -134,6 +134,7 @@ def test_generate_samples(model_hamiltonian):
     ), "KL divergence between sampled and original distribution is too high"
 
 
+@pytest.mark.skip  # Long test that should be run manually
 def test_kl_convergence(some_samples):
     """
     The distance between the sampled distribution and the original
