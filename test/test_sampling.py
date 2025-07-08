@@ -69,11 +69,10 @@ def some_samples(model_hamiltonian):
 
 
 def test_sampling(some_samples):
-    """
-    Ensures valid tokens are sampled from a probability distribution.
-    Enforces samples of shape (sequence, batch, occupation, spin)
-    """
+    """Ensures valid tokens are sampled from a probability distribution.
 
+    Enforces samples of shape (sequence, batch, occupation, spin).
+    """
     samples = some_samples["samples"]
     sample_size = some_samples["sample_size"]
     log_probs = some_samples["log_probs"]
@@ -84,9 +83,9 @@ def test_sampling(some_samples):
     # Log-probs of sampling each of these particular chains
     assert log_probs.shape == (sample_size,)
 
-    assert torch.all(
-        samples.sum(dim=-2) == 1
-    ), "Occupation axis doesn't meet one-hot constraint"
+    assert torch.all(samples.sum(dim=-2) == 1), (
+        "Occupation axis doesn't meet one-hot constraint"
+    )
 
     # Verify particle numbers are as expected.
     # Particle numbers are one-hot encoded along the occupation axis.
@@ -96,11 +95,7 @@ def test_sampling(some_samples):
 
 
 def test_generate_samples(model_hamiltonian):
-    """
-    Ensures single rounds of token sampling produce samples
-    reflecting the distribution provided.
-    """
-
+    """Ensures single rounds of token sampling produce samples reflecting the distribution provided."""
     h_model = model_hamiltonian["h_model"]
 
     # Single-token probability distribution
@@ -129,18 +124,14 @@ def test_generate_samples(model_hamiltonian):
         "b o sp -> ",
     )
 
-    assert (
-        kl_div < 0.01
-    ), "KL divergence between sampled and original distribution is too high"
+    assert kl_div < 0.01, (
+        "KL divergence between sampled and original distribution is too high"
+    )
 
 
 @pytest.mark.skip  # Long test that should be run manually
 def test_kl_convergence(some_samples):
-    """
-    The distance between the sampled distribution and the original
-    distribution should be small in the limit of many samples.
-    """
-
+    """The "distance" between the sampled distribution and the original distribution should be small in the limit of many samples."""
     # TODO: check that the basis states are in the same order as basis_psi
     # returned here.
 
@@ -177,9 +168,9 @@ def test_kl_convergence(some_samples):
 
     samples_dist = counts / sample_size
 
-    assert torch.all(
-        samples_ints_unique == basis_ints
-    ), "Sampled basis states do not match the original basis states after sorting"
+    assert torch.all(samples_ints_unique == basis_ints), (
+        "Sampled basis states do not match the original basis states after sorting"
+    )
 
     kl_div = ein.einsum(
         torch.nn.functional.kl_div(
@@ -212,8 +203,8 @@ def test_kl_convergence(some_samples):
         plt.legend()
         plt.show()
 
-    assert (
-        kl_div < 0.3
-    ), "KL divergence between sampled and original distribution is too high: {:.4f}".format(
-        kl_div.item()
+    assert kl_div < 0.3, (
+        "KL divergence between sampled and original distribution is too high: {:.4f}".format(
+            kl_div.item()
+        )
     )
