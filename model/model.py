@@ -1,7 +1,12 @@
 from torch import nn
 import torch.nn.functional as F
 import torch
-from utils.logging import get_log_metric, tensor_to_string
+from utils.logging import (
+    get_log_metric,
+    tensor_to_string,
+    chains_to_strings,
+    chain_strings_to_integers,
+)
 import einops as ein
 from model.site_degree_embedding import SiteDegreeEmbedding
 import itertools as it
@@ -231,6 +236,13 @@ class HubbardWaveFunction(nn.Module):
             sp=2,
             s=num_sites,
         )
+
+        # Sort basis states descending based on integer representation
+        # of the chains
+        canonical_permutation = chains_to_strings(flat_states)
+        chain_integers = chain_strings_to_integers(canonical_permutation)
+        permutation = torch.argsort(chain_integers, descending=True)
+        flat_states = flat_states[:, permutation, :, :]  # s h o sp
 
         return flat_states.to(dtype=torch.float32)
 
