@@ -1,102 +1,111 @@
-from model.hamiltonian import HubbardHamiltonian
-from model.model import HubbardWaveFunction
 import pytest
-import einops as ein
+from model.position_encoding import PositionEncoding
+from model.site_degree_embedding import SiteDegreeEmbedding
+from model.param_embedding import SimpleParamEmbedding
+from model.token_embedding import OccupationSpinEmbedding
+from model.hubbard_deembedding import HubbardDeembedding
+from model.sampling import Sampling
+
+import torch.nn as nn
 import torch
-from utils.logging import chains_to_strings, chain_strings_to_integers
-import matplotlib.pyplot as plt
-
-SHOW_PLOTS = False
-
-
-@pytest.fixture
-def model_hamiltonian():
-    ham = HubbardHamiltonian(t=1.0, U=2.0)
-
-    h_model = HubbardWaveFunction(
-        embed_dim=32,
-        n_heads=2,
-        n_layers=2,
-        dim_feedforward=64,
-        particle_number=4,
-        max_len=10,
-    )
-
-    params = torch.tensor(
-        [
-            1.0,  # t
-            2.0,  # U
-            32,  # embed dim
-            4,  # particle number
-            5,  # number of params
-        ]
-    )
-
-    data = {
-        "ham": ham,
-        "h_model": h_model,
-        "params": params,
-    }
-
-    return data
+import einops as ein
+import ipdb  # TODO: remove before push
 
 
 @pytest.fixture()
-def some_samples(model_hamiltonian):
-    h_model = model_hamiltonian["h_model"]
-    params = model_hamiltonian["params"]
-    sample_size = 1000
+def sampling_module(request):
+    """
+    Produces a sampling module with reasonable hyperparameters.
+    """
+    particle_number = request.param["particle_number"]
+    embed_dim = 32
+    n_heads = 2
+    n_layers = 2
+    dim_feedforward = 64
+    dropout = 0.1
+    activation = "relu"
+    max_len = 100
+    n_params = 5
+    token_dims = (2, 2)  # occupation, spin
+    input_token_rearrange = "o sp -> (o sp)"
+    wavelen_fact = 1e6
 
-    basis_psi, basis, _ = h_model.compute_basis_information(
-        4,
-        params,
+    embedding = SiteDegreeEmbedding(
+        n_params=n_params,
+        embed_dim=embed_dim,
+        input_token_dims=token_dims,
+        input_token_rearrange=input_token_rearrange,
+        param_embedding=SimpleParamEmbedding,
+        token_embedding=OccupationSpinEmbedding,
+        position_encoding=PositionEncoding,
+        max_len=max_len,
+        wavelen_fact=wavelen_fact,
     )
 
-    samples, log_probs = h_model.sample(
-        num_chains=sample_size,
-        chain_length=4,
-        params=params,
+    encoder_layer = nn.TransformerEncoderLayer(
+        d_model=embed_dim,
+        nhead=n_heads,
+        dim_feedforward=dim_feedforward,
+        dropout=dropout,
+        activation=activation,
+    )
+
+    logit_norm = nn.LayerNorm(
+        embed_dim,
+    )
+
+    transformer_encoder = nn.TransformerEncoder(
+        encoder_layer,
+        num_layers=n_layers,
+        mask_check=True,
+        norm=logit_norm,
+    )
+
+    deembedding = HubbardDeembedding(
+        embed_dim=embed_dim,
+        target_token_dims=(2, 2),  # occupation, spin
+    )
+
+    sampling_mask = torch.tril(
+        torch.ones(
+            max_len,
+            max_len,
+        )
+    )
+
+    sampling = Sampling(
+        embed_dim=embed_dim,
+        particle_number=particle_number,
+        embedding_function=embedding,
+        deembedding_function=deembedding,
+        transformer_encoder=transformer_encoder,
+        mask=sampling_mask,
     )
 
     return {
-        **model_hamiltonian,
-        "basis_psi": basis_psi,
-        "basis": basis,
-        "samples": samples,
-        "sample_size": sample_size,
-        "log_probs": log_probs,
+        "sampling": sampling,
     }
 
 
-def test_sampling(some_samples):
-    """Ensures valid tokens are sampled from a probability distribution.
-
-    Enforces samples of shape (sequence, batch, occupation, spin).
+@pytest.mark.parametrize(
+    "sampling_module, function_params",
+    [
+        ({"particle_number": None}, {"random_seed": 42}),
+        ({"particle_number": 4}, {"random_seed": 37}),
+    ],
+    indirect=["sampling_module"],
+)
+def test_generate_samples(sampling_module, function_params):
     """
-    samples = some_samples["samples"]
-    sample_size = some_samples["sample_size"]
-    log_probs = some_samples["log_probs"]
+    Ensures the next tokens produced by
+    :func:`Sampling._generate_samples` reflect the single-token
+    distribution passed.
+    """
+    random_seed: int = function_params["random_seed"]
 
-    # s b o sp
-    assert samples.shape == (4, sample_size, 2, 2), "Sample shape mismatch"
+    torch.manual_seed(random_seed)
 
-    # Log-probs of sampling each of these particular chains
-    assert log_probs.shape == (sample_size,)
-
-    assert torch.all(samples.sum(dim=-2) == 1), (
-        "Occupation axis doesn't meet one-hot constraint"
-    )
-
-    # Verify particle numbers are as expected.
-    # Particle numbers are one-hot encoded along the occupation axis.
-    particle_numbers = samples.argmax(dim=-2)  # s b sp
-    particle_numbers = ein.einsum(particle_numbers, "s b o -> b")
-    assert torch.all(particle_numbers == 4)
-
-
-def test_generate_samples(model_hamiltonian):
-    """Ensures single rounds of token sampling produce samples reflecting the distribution provided."""
-    h_model = model_hamiltonian["h_model"]
+    sampling: Sampling = sampling_module["sampling"]
 
     # Single-token probability distribution
     prob_dist = torch.rand(16, 2, 2)  # (batch, occ, spin)
@@ -106,9 +115,7 @@ def test_generate_samples(model_hamiltonian):
 
     all_samples = torch.zeros((3000, 16, 2, 2))  # Preallocate space for samples
     for i in range(3000):
-        samples, log_prob = h_model.sampling._generate_samples(
-            prob_dist
-        )  # (16, 2, 2), (16, 2)
+        samples, log_prob = sampling._generate_samples(prob_dist)  # (16, 2, 2), (16, 2)
         all_samples[i] = samples
 
     # Do samples reflect the probability distributions?
@@ -129,82 +136,136 @@ def test_generate_samples(model_hamiltonian):
     )
 
 
-@pytest.mark.skip  # Long test that should be run manually
-def test_kl_convergence(some_samples):
-    """The "distance" between the sampled distribution and the original distribution should be small in the limit of many samples."""
-    # TODO: check that the basis states are in the same order as basis_psi
-    # returned here.
+@pytest.mark.parametrize(
+    "sampling_module, function_params",
+    [
+        ({"particle_number": None}, {"random_seed": 42}),
+        ({"particle_number": 4}, {"random_seed": 37}),
+    ],
+    indirect=["sampling_module"],
+)
+def test_generate_samples_simple(sampling_module, function_params):
+    """
+    Ensure the samples generated meet basic constraints (e.g.,
+    one-hot along the occupation axis).
+    """
 
-    basis = some_samples["basis"]
-    basis_psi = some_samples["basis_psi"]
-    samples = some_samples["samples"]
-    sample_size = some_samples["sample_size"]
+    random_seed: int = function_params["random_seed"]
 
-    # Should converge to this distribution, from the model
-    basis_dist = basis_psi.abs() ** 2  # (s, b, o, sp)
+    torch.manual_seed(random_seed)
 
-    basis_strs = chains_to_strings(basis)
-    samples_strs = chains_to_strings(samples)
-    basis_ints = chain_strings_to_integers(basis_strs)
-    samples_ints = chain_strings_to_integers(samples_strs)
+    sampling: Sampling = sampling_module["sampling"]
 
-    # NOTE: basis ints are in descending order
+    # Mock a single-token batched probability distribution
+    prob_dist = torch.rand(16, 2, 2)  # (batch, occ, spin)
+    prob_dist /= prob_dist.sum(
+        dim=-2, keepdim=True
+    )  # Normalize over the occupation axis, not the spin axis
 
-    samples_ints_unique, counts = samples_ints.unique(
-        return_counts=True
-    )  # (n_unique,), (n_unique,)
+    for _ in range(1000):
+        samples, log_prob = sampling._generate_samples(prob_dist)
 
-    # Add missing basis states to the sample basis state counts as zeros
-    for i in range(basis_ints.shape[0]):
-        if basis_ints[i] not in samples_ints_unique:
-            samples_ints_unique = torch.cat(
-                (samples_ints_unique, torch.tensor([basis_ints[i]]))
-            )
-            counts = torch.cat((counts, torch.tensor([0])))
+        # Ensure samples are one-hot along the occupation axis
+        # The outer loop is necessary to validate this.
+        assert torch.all(samples.sum(dim=-2) == 1), (
+            "Samples are not one-hot across the occupation dimension"
+        )
 
-    rev_sort = torch.argsort(samples_ints_unique, descending=True)
-    samples_ints_unique = samples_ints_unique[rev_sort]
-    counts = counts[rev_sort]
+        # Ensure samples have the correct shape
+        assert samples.shape == (16, 2, 2), (
+            "Samples should have shape (batch, occupation, spin)"
+        )
 
-    samples_dist = counts / sample_size
+        # Ensure log_prob has the correct shape
+        assert log_prob.shape == (16, 2), (
+            "Log probabilities should have shape (batch, spin)"
+        )
 
-    assert torch.all(samples_ints_unique == basis_ints), (
-        "Sampled basis states do not match the original basis states after sorting"
+
+@pytest.mark.parametrize(
+    "sampling_module, function_params",
+    [
+        ({"particle_number": None}, {"random_seed": 42}),
+        ({"particle_number": 4}, {"random_seed": 37}),
+    ],
+    indirect=["sampling_module"],
+)
+def test_correct_log_probs(sampling_module, function_params):
+    """
+    Probs returned from sampling one token agree with probs passed in
+    the distribution sampled from.
+    """
+    random_seed: int = function_params["random_seed"]
+
+    torch.manual_seed(random_seed)
+
+    sampling: Sampling = sampling_module["sampling"]
+
+    # Mock a single-token batched probability distribution
+    prob_dist = torch.rand(16, 2, 2)  # (batch, occ, spin)
+    prob_dist /= prob_dist.sum(
+        dim=-2, keepdim=True
+    )  # Normalize over the occupation axis, not the spin axis
+
+    for _ in range(3000):
+        samples, log_prob = sampling._generate_samples(prob_dist)
+
+        # Obtain prob entries corresponding to the token that was sampled
+        # from the distribution
+        sampled_idx = samples.argmax(dim=-2)  # (b sp)
+        sampled_idx = ein.repeat(
+            sampled_idx,
+            "b sp -> 1 b sp",
+        )
+        probs_from_dist = ein.rearrange(
+            torch.gather(
+                input=prob_dist,  # (b o sp)
+                dim=1,
+                index=sampled_idx,  # (b 1 sp) containing occ idx
+            ),
+            "1 b sp -> b sp",
+        )
+        # probs_from_dist[b][o][sp] = prob_dist[b][sampled_idx[b][o][sp]][sp]
+
+        log_prob_from_dist = probs_from_dist.log()
+
+        assert torch.allclose(log_prob_from_dist, log_prob), (
+            "Log probs and input distribution probs don't agree for a sampled token"
+        )
+
+
+@pytest.mark.parametrize(
+    "sampling_module, function_params",
+    [
+        ({"particle_number": None}, {"random_seed": 42}),
+        ({"particle_number": 4}, {"random_seed": 37}),
+    ],
+    indirect=["sampling_module"],
+)
+def test_sample_simple(sampling_module, function_params):
+    """
+    Ensures sampling without a particle number requirement produces
+    chains meeting basic constraints (dimension, , etc.).
+    """
+    random_seed: int = function_params["random_seed"]
+
+    torch.manual_seed(random_seed)
+
+    tokens = torch.zeros((0, 16, 2, 2))  # (sequence, batch, occupation, spin)
+    params = torch.rand((5, 16))  # (n_params, batch)
+
+    sampling = sampling_module["sampling"]
+
+    tokens, _ = sampling.sample(
+        params=params,
+        tokens=tokens,
+        up_to=10,  # Sample up to 10 tokens
     )
 
-    kl_div = ein.einsum(
-        torch.nn.functional.kl_div(
-            samples_dist.log(),
-            basis_dist.flatten().log(),
-            reduction="none",
-            log_target=True,
-        ),
-        "b -> ",
+    assert tokens.shape == (10, 16, 2, 2), (
+        "Sampled tokens should have shape (sequence, batch, occupation, spin)"
     )
 
-    if SHOW_PLOTS:
-        # Plot samples_dist and basis_dist as bar charts
-        plt.bar(
-            range(len(samples_ints_unique)),
-            samples_dist.detach().numpy(),
-            label="Sampled Distribution",
-            alpha=0.5,
-        )
-
-        plt.bar(
-            range(len(basis_ints)),
-            basis_dist.detach().numpy().flatten(),
-            label="Basis Distribution",
-            alpha=0.5,
-        )
-
-        plt.title(f"Sampled vs Basis Distribution, KL Divergence: {kl_div.item():.4f}")
-
-        plt.legend()
-        plt.show()
-
-    assert kl_div < 0.3, (
-        "KL divergence between sampled and original distribution is too high: {:.4f}".format(
-            kl_div.item()
-        )
+    assert torch.all(tokens.sum(dim=-2) == 1), (
+        "Sampled tokens are not one-hot across the occupation dimension"
     )

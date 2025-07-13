@@ -42,7 +42,7 @@ class Sampling:
     def _generate_samples(
         self,
         prob_dist: torch.Tensor,
-    ):
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Generates branching_fact samples from the given probability distribution over
         next tokens.
@@ -137,22 +137,18 @@ class Sampling:
 
         return new_tokens  # type: ignore
 
-    def _sample_one_more_token(
+    def _tokens_to_probs(
         self,
         params: torch.Tensor,
         more_tokens: torch.Tensor,
-    ):
+    ) -> torch.Tensor:
         """
-        Extends the given token sequence by one token, producing log probs
-        for sampling that particular token.
-
-        params: (n_params, batch)
-        more_tokens: (sequence, batch, occupation, spin)
+        Computes the probability distribution over the next token given
+        prior tokens and the parameter prefix.
         """
 
         seq_len = params.shape[0] + more_tokens.shape[0]
 
-        # FIXME: the embedding function should assume s b o sp
         logits = self.embedding_function(
             params=params,
             tokens=more_tokens,
@@ -170,14 +166,33 @@ class Sampling:
         )  # b sp o, softmax over the last dimension
 
         # FIXME: the de-embedding function should return b o sp
-        prob_dist = ein.rearrange(prob_dist, "b sp o -> b o sp")
+        return ein.rearrange(prob_dist, "b sp o -> b o sp")
+
+    def _sample_one_more_token(
+        self,
+        params: torch.Tensor,
+        more_tokens: torch.Tensor,
+    ):
+        """
+        Extends the given token sequence by one token, producing log probs
+        for sampling that particular token.
+
+        params: (n_params, batch)
+        more_tokens: (sequence, batch, occupation, spin)
+        """
+
+        # Compute a probability distribution over possible next tokens.
+        prob_dist = self._tokens_to_probs(params=params, more_tokens=more_tokens)
 
         # Generate next tokens across the batch dimension, producing one sample
         # per batch element.
-        next, log_probs = self._generate_samples(prob_dist)  # b o sp, b sp
+        next_token, log_probs = self._generate_samples(prob_dist)  # b o sp, b sp
 
+        # Compute the log prob of sampling this particular token.
+        # Note: distributions are independent over the spin dimension.
         step_log_probs = ein.einsum(log_probs, "b sp -> b")
-        return next, step_log_probs
+
+        return next_token, step_log_probs
 
     def sample(
         self,
