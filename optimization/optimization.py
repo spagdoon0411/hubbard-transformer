@@ -83,7 +83,7 @@ def run_optimization(
         n_heads=run_params["n_heads"],
         n_layers=run_params["n_layers"],
         dim_feedforward=run_params["dim_feedforward"],
-        particle_number=run_params["particle_number"],
+        particle_number=None,
         max_len=run_params["max_len"],
         diag=diag,
     )

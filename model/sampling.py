@@ -14,7 +14,7 @@ class Sampling:
     def __init__(
         self,
         embed_dim: int,
-        particle_number: int,
+        particle_number: int | None,
         embedding_function: SiteDegreeEmbedding,
         deembedding_function: HubbardDeembedding,
         transformer_encoder: TransformerEncoder,
@@ -222,7 +222,8 @@ class Sampling:
                 [more_tokens, next.unsqueeze(0)], dim=0
             )  # Add the new token along the sequence dimension
 
-        more_tokens = self._enforce_particle_num(more_tokens)
+        if self.particle_number is not None:
+            more_tokens = self._enforce_particle_num(more_tokens)
 
         more_tokens = more_tokens.to(dtype=torch.float32)
 

@@ -28,7 +28,7 @@ class HubbardWaveFunction(nn.Module):
         n_heads: int,
         n_layers: int,
         dim_feedforward: int,
-        particle_number: int,
+        particle_number: int | None,
         max_len: int,
         wavelen_fact: float = 1e6,
         activation: str = "relu",
@@ -270,7 +270,11 @@ class HubbardWaveFunction(nn.Module):
             along the h ("Hilbert") axis.
         """
 
-        basis = self.generate_basis_at_pnum(num_sites)  # (s, h, o, sp)
+        if self.particle_number is not None:
+            basis = self.generate_basis_at_pnum(num_sites)
+        else:
+            basis = self.generate_basis(num_sites)
+
         s, h, o, sp = basis.shape
         params = ein.repeat(
             params,
