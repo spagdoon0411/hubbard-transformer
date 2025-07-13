@@ -215,7 +215,7 @@ def test_correct_log_probs(sampling_module, function_params):
         sampled_idx = samples.argmax(dim=-2)  # (b sp)
         sampled_idx = ein.repeat(
             sampled_idx,
-            "b sp -> 1 b sp",
+            "b sp -> b 1 sp",
         )
         probs_from_dist = ein.rearrange(
             torch.gather(
@@ -223,7 +223,7 @@ def test_correct_log_probs(sampling_module, function_params):
                 dim=1,
                 index=sampled_idx,  # (b 1 sp) containing occ idx
             ),
-            "1 b sp -> b sp",
+            "b 1 sp -> b sp",
         )
         # probs_from_dist[b][o][sp] = prob_dist[b][sampled_idx[b][o][sp]][sp]
 
