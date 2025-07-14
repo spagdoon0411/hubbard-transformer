@@ -469,7 +469,7 @@ class HubbardWaveFunction(nn.Module):
             logits[n_params:], calculate_phase=True
         )  # s b o sp
 
-        idx = torch.argmax(prob, dim=-2)  # s b sp
+        idx = torch.argmax(tokens, dim=-2)  # s b sp
 
         # Gather does prob[i, j, k, l] = prob[i, j, idx[i, j, k, l], l]
 
