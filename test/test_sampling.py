@@ -66,11 +66,13 @@ def sampling_module(request):
         target_token_dims=(2, 2),  # occupation, spin
     )
 
-    sampling_mask = torch.tril(
+    sampling_mask = torch.triu(
         torch.ones(
             max_len,
             max_len,
         )
+        * -torch.inf,
+        diagonal=1,
     )
 
     sampling = Sampling(

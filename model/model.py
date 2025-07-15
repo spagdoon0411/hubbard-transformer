@@ -89,11 +89,13 @@ class HubbardWaveFunction(nn.Module):
             target_token_dims=token_dims,
         )
 
-        sampling_mask = torch.tril(
+        self.encoder_mask = torch.triu(
             torch.ones(
                 max_len,
                 max_len,
             )
+            * -torch.inf,
+            diagonal=1,
         )
 
         self.sampling = Sampling(
@@ -102,7 +104,7 @@ class HubbardWaveFunction(nn.Module):
             embedding_function=self.embedding,
             deembedding_function=self.deembedding,
             transformer_encoder=self.transformer_encoder,
-            mask=sampling_mask,
+            mask=self.encoder_mask,
         )
 
     def sample(
@@ -453,14 +455,20 @@ class HubbardWaveFunction(nn.Module):
         associated with the wave function that this model represents.
         """
 
-        assert (
-            params.shape[0] == 5
-        ), f"HubbardWaveFunction expects 5 parameters, got {params.shape[0]}"
+        seq_len = tokens.shape[0] + params.shape[0]
+
+        assert params.shape[0] == 5, (
+            f"HubbardWaveFunction expects 5 parameters, got {params.shape[0]}"
+        )
 
         n_params = params.shape[0]
 
         logits = self.embedding(params, tokens)  # s b e
-        logits = self.transformer_encoder(logits)  # s b e
+        logits = self.transformer_encoder(
+            logits,
+            mask=self.encoder_mask[:seq_len, :seq_len],
+            is_causal=True,
+        )  # s b e
 
         # Already occurs in transformer_encoder
         # logits = self.post_transform_norm(logits)  # s b e

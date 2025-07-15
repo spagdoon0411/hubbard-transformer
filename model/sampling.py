@@ -157,6 +157,7 @@ class Sampling:
         logits = self.transformer_encoder(
             logits,
             mask=self.mask[:seq_len, :seq_len],
+            is_causal=True,
         )
 
         # Token i is a function of the last logit sampled so far
