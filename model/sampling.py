@@ -39,43 +39,6 @@ class Sampling:
         self.mask = mask
         self.diag = diag
 
-    def _generate_samples(
-        self,
-        prob_dist: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Generates branching_fact samples from the given probability distribution over
-        next tokens.
-
-        prob_dist: (b, o, sp), the distribution to sample next tokens from.
-        branching_fact: int, the number of samples to generate from the distribution.
-        """
-
-        # Reshape to (b, o, sp) -> (b, sp, o) for Categorical sampling, then reshape back to (b, o, sp)
-        # before returning.
-
-        prob_dist = ein.rearrange(
-            prob_dist,
-            "b o sp -> b sp o",
-        )
-
-        cat = Categorical(probs=prob_dist)
-        next_token = cat.sample()  # (b, sp)
-        log_prob = cat.log_prob(next_token)  # (b, sp)
-        samples = F.one_hot(next_token, num_classes=prob_dist.shape[-1])  # (b, sp, o)
-
-        prob_dist = ein.rearrange(
-            prob_dist,
-            "b sp o -> b o sp",
-        )
-
-        samples = ein.rearrange(
-            samples,
-            "b sp o -> b o sp",
-        )
-
-        return samples, log_prob
-
     def _enforce_particle_num(self, tokens: torch.Tensor) -> torch.Tensor:
         """
         Ensures the number of particles over the whole chain matches the value prescribed
@@ -137,38 +100,6 @@ class Sampling:
 
         return new_tokens  # type: ignore
 
-    def _tokens_to_probs(
-        self,
-        params: torch.Tensor,
-        more_tokens: torch.Tensor,
-    ) -> torch.Tensor:
-        """
-        Computes the probability distribution over the next token given
-        prior tokens and the parameter prefix.
-        """
-
-        seq_len = params.shape[0] + more_tokens.shape[0]
-
-        logits = self.embedding_function(
-            params=params,
-            tokens=more_tokens,
-        )
-
-        logits = self.transformer_encoder(
-            logits,
-            mask=self.mask[:seq_len, :seq_len],
-            is_causal=True,
-        )
-
-        # Token i is a function of the last logit sampled so far
-        last_logit = logits[seq_len - 1, :, :]
-        prob_dist = self.deembedding_function(
-            last_logit, calculate_phase=False
-        )  # b sp o, softmax over the last dimension
-
-        # FIXME: the de-embedding function should return b o sp
-        return ein.rearrange(prob_dist, "b sp o -> b o sp")
-
     def _sample_one_more_token(
         self,
         params: torch.Tensor,
@@ -182,18 +113,31 @@ class Sampling:
         more_tokens: (sequence, batch, occupation, spin)
         """
 
-        # Compute a probability distribution over possible next tokens.
-        prob_dist = self._tokens_to_probs(params=params, more_tokens=more_tokens)
+        # Compute probability distribution over next tokens
+        seq_len = params.shape[0] + more_tokens.shape[0]
 
-        # Generate next tokens across the batch dimension, producing one sample
-        # per batch element.
-        next_token, log_probs = self._generate_samples(prob_dist)  # b o sp, b sp
+        # Embed tokens with parameters and de-embed to produce probabities
+        logits = self.embedding_function(params=params, tokens=more_tokens)
+        logits = self.transformer_encoder(
+            logits, mask=self.mask[:seq_len, :seq_len], is_causal=True
+        )
+        prob_dist = self.deembedding_function(
+            logits[-1, :, :], calculate_phase=False
+        )  # b sp o, softmax over the last dimension
 
-        # Compute the log prob of sampling this particular token.
-        # Note: distributions are independent over the spin dimension.
-        step_log_probs = ein.einsum(log_probs, "b sp -> b")
+        # Sample from de-embedded probabilities
+        cat = Categorical(probs=prob_dist)
+        next_token = cat.sample()  # (b, sp), indices along occupation dimension
+        log_prob = cat.log_prob(next_token)  # (b, sp)
 
-        return next_token, step_log_probs
+        # Expand into a token
+        samples = F.one_hot(next_token, num_classes=prob_dist.shape[-1])  # (b, sp, o)
+        samples = ein.rearrange(
+            samples,
+            "b sp o -> b o sp",
+        )
+
+        return samples, log_prob
 
     def sample(
         self,
@@ -228,12 +172,12 @@ class Sampling:
         chain_log_probs = torch.zeros(batch)
 
         for i in range(n_tokens, up_to):
-            next, step_log_probs = self._sample_one_more_token(
+            next, log_probs = self._sample_one_more_token(
                 params,
                 more_tokens,
             )
 
-            chain_log_probs += step_log_probs
+            chain_log_probs += ein.einsum(log_probs, "b sp -> b")
             more_tokens = torch.cat(
                 [more_tokens, next.unsqueeze(0)], dim=0
             )  # Add the new token along the sequence dimension

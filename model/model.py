@@ -473,16 +473,23 @@ class HubbardWaveFunction(nn.Module):
         # Already occurs in transformer_encoder
         # logits = self.post_transform_norm(logits)  # s b e
 
+        # De-embedding each logit generates the probability and phase
+        # for the site after it.
         prob, phase = self.deembedding(
-            logits[n_params:], calculate_phase=True
-        )  # s b o sp
+            logits[n_params - 1 : -1], calculate_phase=True
+        )  # s b sp o (FIXME: should return s b o sp)
 
         idx = torch.argmax(tokens, dim=-2)  # s b sp
+        prob = torch.gather(
+            prob,  # s b sp o
+            dim=-1,  # o
+            index=idx.unsqueeze(-1),  # s b sp 1, occupation indices
+        ).squeeze(-1)
 
-        # Gather does prob[i, j, k, l] = prob[i, j, idx[i, j, k, l], l]
-
-        idx = ein.rearrange(idx, "s b sp -> s b 1 sp")
-        prob = prob.gather(-2, idx).squeeze(-2)  # s b sp
-        phase = phase.gather(-2, idx).squeeze(-2)  # s b sp
+        phase = torch.gather(
+            phase,  # s b sp o
+            dim=-1,  # o
+            index=idx.unsqueeze(-1),  # s b sp 1, occupation indices
+        ).squeeze(-1)
 
         return prob, phase
