@@ -6,10 +6,11 @@ from scipy.sparse.linalg import eigsh
 
 
 class HubbardHamiltonian(nn.Module):
-    def __init__(self, t: float, U: float):
+    def __init__(self, t: float, U: float, mu: float = 0.0):
         super(HubbardHamiltonian, self)
         self.t = t
         self.U = U
+        self.mu = mu
 
     def assert_shapes(self, a: torch.Tensor, b: torch.Tensor):
         """
@@ -125,8 +126,8 @@ class HubbardHamiltonian(nn.Module):
         populated; this function ignores this case. Annihilation is dealt with
         symmetrically.
 
-        Computes the number of sign inversions associated with these hopping
-        target indices, using a tensor indicating operators to hop over.
+        Computes the number of sign inversions associated with these hopping target indices,
+        using a tensor indicating operators to hop over.
         """
 
         (b,) = creation_idx.shape
@@ -237,8 +238,7 @@ class HubbardHamiltonian(nn.Module):
         # ):
         #     ipdb.set_trace()
 
-        diagonals = diffs.abs().sum(dim=0) == 0
-        entries[diagonals] = self.U
+        diagonals = diffs.abs().sum(dim=0) == 0  # b h
 
         # Chains that are one away
         diffs_connected = diffs[:, one_away]  # (s sp) num_connected
@@ -298,6 +298,12 @@ class HubbardHamiltonian(nn.Module):
         num_pairs = pairs.sum(dim=0)  # num_diags
         num_pairs = num_pairs.to(torch.float32)
 
+        num_particles = torch.sum(
+            diagonal_kets,
+            dim=0,
+        )
+
         entries[diagonals] = self.U * num_pairs  # num_diags <- num_diags
+        entries[diagonals] -= self.mu * num_particles  # num_diags <- num_diags
 
         return entries

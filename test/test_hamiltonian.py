@@ -323,3 +323,97 @@ def test_diagonal(str1: str, str2: str, expected: float, U: float):
         f"Expected {expected} but got "
         f"{ham.entry(expand_str_chain(str1), expand_str_chain(str2))[0, 0]}"
     )
+
+
+@pytest.mark.parametrize(
+    "str1, str2, expected, U, mu",
+    [
+        ("000000", "000000", 0.0, 2.0, 1.0),
+        ("000000", "000000", 0.0, 2.0, 0.5),
+        ("100000", "100000", -1.0, 2.0, 1.0),
+        ("010000", "010000", -0.5, 2.0, 0.5),
+        ("000100", "000100", -2.0, 2.0, 2.0),
+        ("110000", "110000", 0.0, 2.0, 1.0),
+        ("101000", "101000", -2.0, 2.0, 1.0),
+        ("010100", "010100", -1.0, 2.0, 0.5),
+        ("001100", "001100", 1.0, 2.0, 0.5),
+        ("000011", "000011", -1.0, 2.0, 1.5),
+        ("111100", "111100", 0.0, 2.0, 1.0),
+        ("111100", "111100", 2.0, 3.0, 1.0),
+        ("111100", "111100", -2.0, 2.0, 1.5),
+        ("111000", "111000", -1.0, 2.0, 1.0),
+        ("110100", "110100", 0.5, 2.0, 0.5),
+    ],
+)
+def test_diagonal_with_chemical_potential(
+    str1: str, str2: str, expected: float, U: float, mu: float
+):
+    """Test diagonal Hamiltonian entries with nonzero chemical potential."""
+    ham = HubbardHamiltonian(t=1.0, U=U, mu=mu)
+    result = ham.entry(
+        expand_str_chain(str1),
+        expand_str_chain(str2),
+    )[0, 0]
+
+    assert result == expected, (
+        f"Expected {expected} but got {result} for state {str1} with U={U}, mu={mu}"
+    )
+
+
+@pytest.mark.parametrize(
+    "str1, str2, expected, t, U, mu",
+    [
+        ("0100", "0001", -1.0, 1.0, 2.0, 1.0),
+        ("1000", "0010", -1.0, 1.0, 2.0, 0.5),
+        ("0010", "1000", -1.0, 1.0, 2.0, 2.0),
+        ("0100", "0001", -2.0, 2.0, 2.0, 1.0),
+        ("1000", "0010", -0.5, 0.5, 2.0, 1.0),
+    ],
+)
+def test_hopping_with_chemical_potential(
+    str1: str, str2: str, expected: float, t: float, U: float, mu: float
+):
+    """Test that off-diagonal hopping terms are unaffected by chemical potential."""
+    ham = HubbardHamiltonian(t=t, U=U, mu=mu)
+    result = ham.entry(
+        expand_str_chain(str1),
+        expand_str_chain(str2),
+    )[0, 0]
+
+    assert result == expected, (
+        f"Expected {expected} but got {result} for hopping {str1} -> {str2} "
+        f"with t={t}, U={U}, mu={mu}"
+    )
+
+
+def test_chemical_potential_particle_counting():
+    """Test that chemical potential correctly counts particles in various states."""
+    ham = HubbardHamiltonian(t=1.0, U=2.0, mu=1.0)
+
+    test_cases = [
+        ("000000", 0),
+        ("100000", 1),
+        ("110000", 2),
+        ("101000", 2),
+        ("111000", 3),
+        ("111100", 4),
+        ("111110", 5),
+        ("111111", 6),
+    ]
+
+    for state, expected_particles in test_cases:
+        result = ham.entry(
+            expand_str_chain(state),
+            expand_str_chain(state),
+        )[0, 0]
+
+        state_tensor = expand_str_chain(state)
+        occupied_particles = state_tensor[:, :, 1, :]
+        doubly_occupied_sites = (occupied_particles.sum(dim=2) == 2).sum().float()
+        expected_result = ham.U * doubly_occupied_sites - ham.mu * expected_particles
+
+        assert abs(result - expected_result) < 1e-6, (
+            f"For state {state} with {expected_particles} particles: "
+            f"expected {expected_result}, got {result}. "
+            f"Doubly occupied sites: {doubly_occupied_sites}"
+        )
