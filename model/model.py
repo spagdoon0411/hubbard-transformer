@@ -335,6 +335,10 @@ class HubbardWaveFunction(nn.Module):
             sample_psi,
         )
 
+        h_entries = h_entries.to(dtype=torch.complex64)
+        basis_psi = basis_psi.to(dtype=torch.complex64)
+        sample_psi = sample_psi.to(dtype=torch.complex64)
+
         E_loc_values = ein.einsum(
             h_entries,
             sample_psi**-1,
