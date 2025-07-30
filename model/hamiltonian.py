@@ -52,7 +52,8 @@ class HubbardHamiltonian(nn.Module):
 
         if l_idx.shape != r_idx.shape:
             raise ValueError(
-                f"Left and right indices must have the same shape: {l_idx.shape} != {r_idx.shape}"
+                f"Left and right indices must have the same shape: "
+                f"{l_idx.shape} != {r_idx.shape}"
             )
 
         counter = torch.arange(0, target_mask_length)
@@ -88,7 +89,8 @@ class HubbardHamiltonian(nn.Module):
         report: bool = False,
     ) -> dict:
         """
-        Given a basis, computes the expected ground state energy. Returns the smallest algebraic eigenvalue, with other tangential information.
+        Computes the ground state energy. Returns the smallest algebraic
+        eigenvalue, with other tangential information.
         """
 
         a = basis
@@ -127,8 +129,8 @@ class HubbardHamiltonian(nn.Module):
         populated; this function ignores this case. Annihilation is dealt with
         symmetrically.
 
-        Computes the number of sign inversions associated with these hopping target indices,
-        using a tensor indicating operators to hop over.
+        Computes the number of sign inversions associated with these hopping
+        target indices, using a tensor indicating operators to hop over.
         """
 
         (b,) = creation_idx.shape
@@ -165,7 +167,10 @@ class HubbardHamiltonian(nn.Module):
         """
         Takes a binary tensor to a string of 0s and 1s
         """
-        to_string = lambda x: "".join([str(int(i)) for i in x])
+
+        def to_string(x):
+            return "".join([str(int(i)) for i in x])
+
         arr = a.numpy()
         strings = np.apply_along_axis(
             to_string,

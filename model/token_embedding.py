@@ -43,9 +43,9 @@ class OccupationSpinEmbedding(nn.Module):
         input = input.strip()
         output = output.strip()
 
-        assert self.EINOPS_REGEX.match(
-            output
-        ), "Output einops pattern must be of the form (o1', ..., on')"
+        assert self.EINOPS_REGEX.match(output), (
+            "Output einops pattern must be of the form (o1', ..., on')"
+        )
 
         pattern = f"s b {input} -> s b {output}"
 

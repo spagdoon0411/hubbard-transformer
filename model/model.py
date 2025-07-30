@@ -58,8 +58,9 @@ class HubbardWaveFunction(nn.Module):
             wavelen_fact=wavelen_fact,
         )
 
-        # Making this an attr of self will cause zero grads to be logged. This object is not
-        # involved in computation graphs; copies of it (made by TransformerEncoder) are.
+        # Making this an attr of self will cause zero grads to be logged.
+        # This object is not involved in computation graphs; copies of it
+        # (made by TransformerEncoder) are.
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embed_dim,
             nhead=n_heads,
@@ -268,8 +269,8 @@ class HubbardWaveFunction(nn.Module):
         psi: torch.Tensor
             The wave function corresponding to the basis states in s sp h format.
         basis: torch.Tensor
-            Basis state vectors in s h o sp format. Wave function values are to be aligned
-            along the h ("Hilbert") axis.
+            Basis state vectors in s h o sp format. Wave function values are
+            to be aligned along the h ("Hilbert") axis.
         """
 
         if self.particle_number is not None:
@@ -328,7 +329,6 @@ class HubbardWaveFunction(nn.Module):
         sample_psi: torch.Tensor,  # < a | psi >
         basis_psi: torch.Tensor,  # < b | psi >
     ):
-
         sample_psi = torch.where(
             sample_psi.abs() < 1e-30,
             torch.ones_like(sample_psi) * 1e-30,

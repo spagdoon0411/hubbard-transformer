@@ -25,9 +25,9 @@ def test_hermitian(simple_ham):
     basis = expand_str_chains(basis)
     h_a_b = simple_ham.entry(basis, basis)
 
-    assert torch.all(
-        h_a_b.transpose(0, 1).conj().isclose(h_a_b)
-    ), "Hamiltonian is not Hermitian."
+    assert torch.all(h_a_b.transpose(0, 1).conj().isclose(h_a_b)), (
+        "Hamiltonian is not Hermitian."
+    )
 
 
 def expand_str_chain(chain: str):
@@ -176,9 +176,9 @@ def test_two_site_entries(simple_ham, str1, str2, expected):
 
     # Validate the expected value
     if expected == "U":
-        assert (
-            h_a_b[0, 0] == simple_ham.U
-        ), f"Expected h_a_b[0, 0] to be {simple_ham.U}."
+        assert h_a_b[0, 0] == simple_ham.U, (
+            f"Expected h_a_b[0, 0] to be {simple_ham.U}."
+        )
     else:
         assert h_a_b[0, 0] == expected, f"Expected h_a_b[0, 0] to be {expected}."
 
@@ -220,9 +220,9 @@ def test_three_site_entries(simple_ham, str1, str2, expected):
 
     # Validate the expected value
     if expected == "U":
-        assert (
-            h_a_b[0, 0] == simple_ham.U
-        ), f"Expected h_a_b[0, 0] to be {simple_ham.U}."
+        assert h_a_b[0, 0] == simple_ham.U, (
+            f"Expected h_a_b[0, 0] to be {simple_ham.U}."
+        )
     else:
         assert h_a_b[0, 0] == expected, f"Expected h_a_b[0, 0] to be {expected}."
 
@@ -319,4 +319,7 @@ def test_diagonal(str1: str, str2: str, expected: float, U: float):
             expand_str_chain(str2),
         )[0, 0]
         == expected
-    ), f"Expected {expected} but got {ham.entry(expand_str_chain(str1), expand_str_chain(str2))[0, 0]}"
+    ), (
+        f"Expected {expected} but got "
+        f"{ham.entry(expand_str_chain(str1), expand_str_chain(str2))[0, 0]}"
+    )

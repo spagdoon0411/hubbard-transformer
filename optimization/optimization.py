@@ -166,11 +166,9 @@ def log_grads(
 
 
 def main():
-
     N_TIMES = 100
 
     for i in range(N_TIMES):
-
         # Create weight logging folders
         if not os.path.exists("weights"):
             os.makedirs("weights")
@@ -203,9 +201,9 @@ def main():
                 project="spagdoon0411/hubbard-model",
                 api_token=os.environ["NEPTUNE_API_TOKEN"],
                 tags=["importance/recents"],
-                name=f"grad-explosion-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}",  # Custom run name
+                name=f"grad-explosion-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}",
             )
-            run["parameters"] = params
+            run["parameters"] = params  # type: ignore
 
         stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 

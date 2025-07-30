@@ -8,8 +8,6 @@ from model.sampling import Sampling
 
 import torch.nn as nn
 import torch
-import einops as ein
-import ipdb  # TODO: remove before push
 
 
 @pytest.fixture()

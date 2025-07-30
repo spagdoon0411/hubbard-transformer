@@ -6,7 +6,7 @@ def setup_nb() -> torch.device:
     REPO_NAME = "hubbard-transformer"
 
     if not os.getcwd().endswith(REPO_NAME):
-        os.chdir(f"..")
+        os.chdir("..")
 
     if torch.cuda.is_available():
         print("CUDA is available.")

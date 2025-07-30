@@ -3,9 +3,10 @@ import ipdb
 
 
 def debug_upstream_params(value, model):
-    # This function takes the value that was passed to it, embedded in a computation graph,
-    # and lists all of the model parameters under its influence. Collects upstream
-    # parameter information and sets a debugger breakpoint before returning.
+    # This function takes the value that was passed to it, embedded in a
+    # computation graph, and lists all of the model parameters under its
+    # influence. Collects upstream parameter information and sets a debugger
+    # breakpoint before returning.
 
     if model is not None:
         named_params = list(model.named_parameters())

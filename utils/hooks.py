@@ -47,7 +47,7 @@ def create_forward_hook(module_name, neptune_run: Optional[neptune.Run]):
                             output_std
                         )
 
-        except Exception as e:
+        except Exception:
             ipdb.set_trace()
 
     def forward_hook(module, inputs, outputs):

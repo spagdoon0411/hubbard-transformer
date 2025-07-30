@@ -43,12 +43,12 @@ def sample_partial(model_hamiltonian):
 
 
 def test_e_loc_simple(sample_partial):
-    h_model = sample_partial["h_model"]
+    h_model: HubbardWaveFunction = sample_partial["h_model"]
     ham = sample_partial["ham"]
     occupations = sample_partial["occupations"]
     params = create_params(n_params=5)
 
-    e_loc = h_model.e_loc(
+    h_model.e_loc(
         hamiltonian=ham,
         params=params,
         sampled_states=occupations,
@@ -91,22 +91,23 @@ def test_basis_generation(model_hamiltonian):
     particle_counts = ein.einsum(canonical_bin, "s b -> b")
 
     # Each chain has the right number of particles
-    assert torch.all(
-        particle_counts == h_model.particle_number
-    ), "Particle counts don't match counts of model"
+    assert torch.all(particle_counts == h_model.particle_number), (
+        "Particle counts don't match counts of model"
+    )
 
     # We have the right number of chains
     batch = basis.shape[1]
-    assert batch == math.comb(
-        num_sites * 2, particle_num
-    ), f"Batch size should be equal to number of ways to choose {num_sites} from {num_sites * 2}"
+    assert batch == math.comb(num_sites * 2, particle_num), (
+        f"Batch size should be equal to number of ways to choose "
+        f"{num_sites} from {num_sites * 2}"
+    )
 
     # All of the chains are unique
     for i in range(batch):
         for j in range(i + 1, batch):
-            assert not torch.all(
-                basis[:, i] == basis[:, j]
-            ), "Basis states were not unique"
+            assert not torch.all(basis[:, i] == basis[:, j]), (
+                "Basis states were not unique"
+            )
 
 
 def test_reliable_e_loc(model_hamiltonian):
@@ -131,9 +132,9 @@ def test_reliable_e_loc(model_hamiltonian):
     for i in range(len(vals)):
         psi_from_diag = torch.tensor(vects[:, i], dtype=torch.complex64)
         probs = psi_from_diag * psi_from_diag.conj()
-        assert torch.isclose(
-            probs.sum(), torch.tensor(1.0, dtype=torch.complex64)
-        ), "Probabilities from exact diag were not normalized to 1"
+        assert torch.isclose(probs.sum(), torch.tensor(1.0, dtype=torch.complex64)), (
+            "Probabilities from exact diag were not normalized to 1"
+        )
 
         e_loc_values = h_model._compute_e_loc(
             h_entries=entries,
@@ -153,7 +154,12 @@ def test_reliable_e_loc(model_hamiltonian):
         assert torch.isclose(
             from_tensor,
             from_diag,
-        ), f"e_loc values don't match exact diag. Calculated: {from_tensor}, from exact diag: {from_diag}."
+        ), (
+            f"e_loc values don't match exact diag. Calculated: {from_tensor}, "
+            f"from exact diag: {from_diag}."
+        )
+
+
 def test_full_basis_generation(model_hamiltonian):
     """
     Tests that a complete basis is generated in (s b o sp) format

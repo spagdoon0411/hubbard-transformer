@@ -14,7 +14,6 @@ def setup_site_degree_embedding():
     einops_rearrange = "o sp -> (o sp)"
     batch = 16
     n_tokens = 25
-    max_len = 100
 
     he = SiteDegreeEmbedding(
         n_params=n_params,

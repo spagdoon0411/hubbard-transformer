@@ -41,8 +41,9 @@ class Sampling:
 
     def _enforce_particle_num(self, tokens: torch.Tensor) -> torch.Tensor:
         """
-        Ensures the number of particles over the whole chain matches the value prescribed
-        on initialization by randomly distributing particles in available slots.
+        Ensures the number of particles over the whole chain matches the value
+        prescribed on initialization by randomly distributing particles in
+        available slots.
         """
 
         seq, batch, occ, sp = tokens.shape
@@ -65,7 +66,8 @@ class Sampling:
 
             if torch.any(available_count == 0 & adjustments_needed):
                 raise ValueError(
-                    "Not enough available sites to fill the particle number in some chains. Can the chain support enough particles?"
+                    "Not enough available sites to fill the particle number in "
+                    "some chains. Can the chain support enough particles?"
                 )
 
             incomplete_chains = site_occs[:, adjustments_needed]

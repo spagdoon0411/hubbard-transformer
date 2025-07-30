@@ -16,7 +16,7 @@ def get_log_metric(diag: Optional[dict], metric: str):
     if run is None or not metric_present:
         return None
     else:
-        if not metric in seen:
+        if metric not in seen:
             print(f"Logging metric {metric} to Neptune")
             seen.add(metric)
 

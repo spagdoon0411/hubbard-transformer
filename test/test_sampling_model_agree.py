@@ -7,6 +7,9 @@ import random
 import torch
 import einops as ein
 
+# Display sampling distributions
+DISPLAY_PLOTS = False
+
 
 @pytest.fixture()
 def model(request):
@@ -151,7 +154,8 @@ def test_sampling_model_agree_single(model, seed):
 
     try:
         assert torch.allclose(prob_sampling, prob_model), (
-            f"Probabilities from sampling do not agree with probabilities from embedding for seed {seed}"
+            f"Probabilities from sampling do not agree with probabilities "
+            f"from embedding for seed {seed}"
         )
     except AssertionError as e:
         print(f"FAILED: Seed {seed} - {e}")
@@ -278,7 +282,8 @@ def test_sampled_vs_wavefunction_distribution(model, seed):
     samples_dist = counts / sample_size
 
     assert torch.all(samples_ints_unique == basis_ints), (
-        f"Sampled basis states do not match the original basis states after sorting for seed {seed}"
+        f"Sampled basis states do not match the original basis states "
+        f"after sorting for seed {seed}"
     )
 
     # Calculate KL divergence between sampled and wave function distributions
@@ -292,23 +297,23 @@ def test_sampled_vs_wavefunction_distribution(model, seed):
         "b -> ",
     )
 
-    # Optional: Display plots (uncomment if needed)
-    import matplotlib.pyplot as plt
+    if DISPLAY_PLOTS:
+        import matplotlib.pyplot as plt
 
-    plt.bar(
-        range(len(samples_ints_unique)),
-        samples_dist.detach().numpy(),
-        label="Sampled Distribution",
-        alpha=0.5,
-    )
-    plt.bar(
-        range(len(basis_ints)),
-        basis_dist.detach().numpy().flatten(),
-        label="Wave Function Distribution",
-        alpha=0.5,
-    )
-    plt.title(
-        f"Sampled vs Wave Function Distribution, KL Divergence: {kl_div.item():.4f}"
-    )
-    plt.legend()
-    plt.show()
+        plt.bar(
+            range(len(samples_ints_unique)),
+            samples_dist.detach().numpy(),
+            label="Sampled Distribution",
+            alpha=0.5,
+        )
+        plt.bar(
+            range(len(basis_ints)),
+            basis_dist.detach().numpy().flatten(),
+            label="Wave Function Distribution",
+            alpha=0.5,
+        )
+        plt.title(
+            f"Sampled vs Wave Function Distribution, KL Divergence: {kl_div.item():.4f}"
+        )
+        plt.legend()
+        plt.show()
