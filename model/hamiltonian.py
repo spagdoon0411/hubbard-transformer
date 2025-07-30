@@ -79,10 +79,6 @@ class HubbardHamiltonian(nn.Module):
         mask = counter > indices if inclusive else counter >= indices
         return mask
 
-        """
-        Find the expected ground state eigenvalue
-        """
-
     def ground_state(
         self,
         basis: torch.Tensor,
