@@ -451,6 +451,28 @@ class HubbardWaveFunction(nn.Module):
         loss = ein.reduce(log_probs * e_loc_values, "b -> ", reduction="mean")
         return loss
 
+    def surrogate_loss_zhang_ventra(self, probs, phases, e_loc_values):
+        """
+        Zhang and Ventra's E_loc surrogate loss.
+        """
+
+        e_expect = e_loc_values.mean().detach()
+
+        e_loc_values = e_loc_values - e_expect
+        e_loc_real = e_loc_values.real  # (b,)
+        e_loc_imag = e_loc_values.imag  # (b,)
+
+        probs = ein.einsum(probs, "s b sp -> b")
+        log_probs = probs.log()
+        phases = ein.einsum(phases, "s b sp -> b")
+
+        scale = 1 / e_expect.abs()
+        scale = torch.clamp(scale, max=5)
+
+        dp = e_loc_real * log_probs + e_loc_imag * phases
+
+        return dp.mean() * scale
+
     def forward(
         self,
         params: torch.Tensor,  # (n_params, batch)

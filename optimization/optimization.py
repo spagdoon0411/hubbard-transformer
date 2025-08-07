@@ -3,6 +3,7 @@ from model.hamiltonian import HubbardHamiltonian
 from model.weight_init import initialize_weights
 from utils.hooks import register_hooks_for_all_modules
 import torch
+import einops as ein
 from typing import Optional
 import os
 import neptune
@@ -42,6 +43,15 @@ def optimization_step(
         params=params,  # type: ignore
     )
 
+    probs, phases = model.forward(
+        params=ein.repeat(
+            params,
+            "n -> n b",
+            b=batch_size,
+        ),
+        tokens=samples,  # s b o sp
+    )
+
     # Estimate < E_loc > based on samples
     e_loc = model.e_loc(
         hamiltonian=hamiltonian,
@@ -51,9 +61,10 @@ def optimization_step(
 
     e_loc_real, e_loc_imag = e_loc.real, e_loc.imag
 
-    loss = model.surrogate_loss(
-        log_probs=log_probs,
-        e_loc_values=e_loc_real,
+    loss = model.surrogate_loss_zhang_ventra(
+        probs=probs,
+        phases=phases,
+        e_loc_values=e_loc,
     )
 
     loss.backward()
