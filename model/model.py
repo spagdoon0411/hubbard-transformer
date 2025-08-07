@@ -329,11 +329,6 @@ class HubbardWaveFunction(nn.Module):
         sample_psi: torch.Tensor,  # < a | psi >, dim b
         basis_psi: torch.Tensor,  # < b | psi >, dim h
     ):
-        sample_psi = torch.where(
-            sample_psi.abs() < 1e-30,
-            torch.ones_like(sample_psi) * 1e-30,
-            sample_psi,
-        )
         """
         Computes E_loc = \sum_{b} < a | H | b > < b | psi > / < a | psi >.
         """
