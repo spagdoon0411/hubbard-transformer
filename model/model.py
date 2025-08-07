@@ -325,26 +325,30 @@ class HubbardWaveFunction(nn.Module):
 
     def _compute_e_loc(
         self,
-        h_entries: torch.Tensor,
-        sample_psi: torch.Tensor,  # < a | psi >
-        basis_psi: torch.Tensor,  # < b | psi >
+        h_entries: torch.Tensor,  # dim b h
+        sample_psi: torch.Tensor,  # < a | psi >, dim b
+        basis_psi: torch.Tensor,  # < b | psi >, dim h
     ):
         sample_psi = torch.where(
             sample_psi.abs() < 1e-30,
             torch.ones_like(sample_psi) * 1e-30,
             sample_psi,
         )
+        """
+        Computes E_loc = \sum_{b} < a | H | b > < b | psi > / < a | psi >.
+        """
 
         h_entries = h_entries.to(dtype=torch.complex64)
         basis_psi = basis_psi.to(dtype=torch.complex64)
         sample_psi = sample_psi.to(dtype=torch.complex64)
 
+        # Compute E_loc at every basis state a.
         E_loc_values = ein.einsum(
             h_entries,
             sample_psi**-1,
             basis_psi,
-            "b h, b, h -> b",  # TODO: does this scale by the b-values?
-        )  # The bra-psi are the sampled states
+            "b h, b, h -> b",
+        )
 
         if E_loc_values.isnan().any():
             raise ValueError(
@@ -367,7 +371,7 @@ class HubbardWaveFunction(nn.Module):
 
             met.log(tensor_to_string(mean_summands))
 
-        return E_loc_values  # b
+        return E_loc_values  # a
 
     def e_loc(
         self,
@@ -419,8 +423,6 @@ class HubbardWaveFunction(nn.Module):
 
         # NOTE: we should have one psi-value per basis entry
 
-        # Invididual entries of < a | H | b > where the sampled states (axis b)
-        # are the bras and the basis states (axis h) are the kets
         entries = hamiltonian.entry(
             a=sampled_states,
             b=basis,
@@ -488,12 +490,12 @@ class HubbardWaveFunction(nn.Module):
             prob,  # s b sp o
             dim=-1,  # o
             index=idx.unsqueeze(-1),  # s b sp 1, occupation indices
-        ).squeeze(-1)
+        ).squeeze(-1)  # s b sp, with prob of sampled occupation selected
 
         phase = torch.gather(
             phase,  # s b sp o
             dim=-1,  # o
             index=idx.unsqueeze(-1),  # s b sp 1, occupation indices
-        ).squeeze(-1)
+        ).squeeze(-1)  # s b sp, with prob of sampled occupation selected
 
         return prob, phase
