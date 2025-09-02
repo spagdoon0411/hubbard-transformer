@@ -31,7 +31,7 @@ class HubbardWaveFunction(nn.Module):
         particle_number: int | None,
         max_len: int,
         wavelen_fact: float = 1e6,
-        activation: str = "relu",
+        activation: str = "gelu",
         dropout: float = 0.1,
         diag: dict = {},
     ):
@@ -337,8 +337,18 @@ class HubbardWaveFunction(nn.Module):
         basis_psi = basis_psi.to(dtype=torch.complex64)
         sample_psi = sample_psi.to(dtype=torch.complex64)
 
-        # Compute E_loc at every basis state a.
+        # Check for exactly zero probabilities
+        if torch.any(sample_psi.abs() == 0.0):
+            raise ValueError(
+                "sample_psi contains exactly zero probabilities, which would cause division by zero"
+            )
+
+        sample_psi = torch.clamp(sample_psi.abs(), min=1e-10) * torch.exp(
+            1j * sample_psi.angle()  # type: ignore
+        )
+
         E_loc_values = ein.einsum(
+            # loc_values = ein.einsum(
             h_entries,
             sample_psi**-1,
             basis_psi,
@@ -431,20 +441,23 @@ class HubbardWaveFunction(nn.Module):
 
         return E_loc_values
 
-    def surrogate_loss(self, log_probs, e_loc_values):
+    def surrogate_loss(self, e_loc_values, log_probs) -> torch.Tensor:
         """
-        d_theta [ < E_loc(x) > ]
-        = < E_loc(x) * d_theta [ log p(x; theta) ] >
-        = (1 / N) sum_x ( E_loc(x) * d_theta [ log p(x; theta) ] )
-        = d_theta [ (1 / N) sum_x ( E_loc(x) * log p(x; theta) ) ]
-
-        ...which we know to be the gradient of the expectation of E_loc. We
-        can apply the regular score function sampling because E_loc is a function
-        of the samples themselves, not of model params.
+        Inputs to surrogate loss:
+        - log probs for chains - b
+        - E_loc values - b
         """
+        e_loc_mean = e_loc_values.real.mean().detach()
 
-        loss = ein.reduce(log_probs * e_loc_values, "b -> ", reduction="mean")
-        return loss
+        # Minimize the log prob weighted deviations of E_loc from its mean?
+        return (log_probs * (e_loc_values.real.detach() - e_loc_mean)).mean()
+        # return ((e_loc_values - e_loc_values.mean().detach()) * log_probs).mean().real
+
+    # def surrogate_loss(self, log_probs, e_loc_values):
+    #     e_loc_samples = e_loc_values.detach()
+    #     loss1 = ein.reduce(log_probs * e_loc_samples, "b -> ", reduction="mean")
+    #     loss2 = e_loc_values
+    #     return loss1 + loss2
 
     def surrogate_loss_zhang_ventra(self, probs, phases, e_loc_values):
         """

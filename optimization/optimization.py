@@ -3,6 +3,7 @@ from model.hamiltonian import HubbardHamiltonian
 from model.weight_init import initialize_weights
 from utils.hooks import register_hooks_for_all_modules
 import torch
+from torch.nn.utils import clip_grad_norm_
 import einops as ein
 from typing import Optional
 import os
@@ -14,10 +15,29 @@ from utils.ground_states import display_psi
 # Fixed for this Hubbard model
 N_PARAMS = 5
 
-NEPTUNE_TRACKING = False
+NEPTUNE_TRACKING = True
 
 load_dotenv(".env")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def transform_for_neptune(params: dict) -> dict:
+    """
+    Transform parameter dictionary for Neptune by converting None values to strings.
+
+    Args:
+        params: Dictionary containing model parameters
+
+    Returns:
+        Dictionary with None values converted to "None" strings
+    """
+    transformed_params = {}
+    for key, value in params.items():
+        if value is None:
+            transformed_params[key] = "None"
+        else:
+            transformed_params[key] = value
+    return transformed_params
 
 
 def optimization_step(
@@ -43,14 +63,14 @@ def optimization_step(
         params=params,  # type: ignore
     )
 
-    probs, phases = model.forward(
-        params=ein.repeat(
-            params,
-            "n -> n b",
-            b=batch_size,
-        ),
-        tokens=samples,  # s b o sp
-    )
+    # probs, phases = model.forward(
+    #     params=ein.repeat(
+    #         params,
+    #         "n -> n b",
+    #         b=batch_size,
+    #     ),
+    #     tokens=samples,  # s b o sp
+    # )
 
     # Estimate < E_loc > based on samples
     e_loc = model.e_loc(
@@ -61,14 +81,22 @@ def optimization_step(
 
     e_loc_real, e_loc_imag = e_loc.real, e_loc.imag
 
-    loss = model.surrogate_loss_zhang_ventra(
-        probs=probs,
-        phases=phases,
+    # loss = model.surrogate_loss_zhang_ventra(
+    #     probs=probs,
+    #     phases=phases,
+    #     e_loc_values=e_loc,
+    # )
+
+    loss = model.surrogate_loss(
         e_loc_values=e_loc,
+        log_probs=log_probs,
     )
 
     loss.backward()
 
+    # Clips grads in copmutation graph buffers to prevent
+    # occational explosion
+    clip_grad_norm_(model.parameters(), max_norm=1.0)
     optimizer.step()
 
     return loss, e_loc_real.mean(), e_loc_imag.mean()
@@ -94,7 +122,7 @@ def run_optimization(
         n_heads=run_params["n_heads"],
         n_layers=run_params["n_layers"],
         dim_feedforward=run_params["dim_feedforward"],
-        particle_number=None,
+        particle_number=run_params["particle_number"],
         max_len=run_params["max_len"],
         diag=diag,
     )
@@ -117,7 +145,9 @@ def run_optimization(
             run_params["t"],  # N
             run_params["U"],
             run_params["embed_dim"],
-            run_params["particle_number"],
+            run_params["particle_number"]
+            if run_params["particle_number"] is not None
+            else 0,
             N_PARAMS,
         ]
     )
@@ -189,13 +219,13 @@ def main():
 
         params = {
             "learning_rate": 1e-3,
-            "batch_size": 64,
-            "n_sites": 4,
-            "embed_dim": 32,
-            "n_heads": 1,
-            "n_layers": 1,
-            "dim_feedforward": 64,
-            "particle_number": 4,
+            "batch_size": 256,
+            "n_sites": 8,
+            "embed_dim": 128,
+            "n_heads": 4,
+            "n_layers": 2,
+            "dim_feedforward": 256,
+            "particle_number": None,
             "max_len": 100,
             "t": 1.0,
             "U": 2.0,
